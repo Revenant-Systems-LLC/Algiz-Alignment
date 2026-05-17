@@ -277,6 +277,17 @@ dotnet test SAIGE-RAGE.sln
 
 51 tests across two projects (26 core + 25 proxy).
 
+### Local Development Setup
+
+For local development, add these entries to your local `.gitignore`:
+
+```
+AGENTS.md
+CLAUDE.md
+prompt/persona/Keystone.md
+prompt/persona/V.md
+```
+
 ---
 
 ## Proxy Mode

@@ -12,6 +12,4 @@ Secrets.env
 node_modules/
 .next/
 out/
-AGENTS.md
-prompt/persona/Keystone.md
-prompt/persona/V.md
+.gitignore
