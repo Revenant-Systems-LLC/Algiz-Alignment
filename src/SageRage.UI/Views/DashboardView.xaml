@@ -1,0 +1,27 @@
+<Page x:Class="SageRage.UI.Views.DashboardView"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="Transparent"
+      Title="Dashboard">
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Page heading -->
+    <TextBlock Grid.Row="0"
+               Text="DASHBOARD"
+               Style="{StaticResource Heading1}"
+               Margin="0,0,0,20" />
+
+    <!-- Profile card grid placeholder -->
+    <Border Grid.Row="1"
+            Style="{StaticResource PanelCard}">
+      <TextBlock Text="No profiles configured. Create a profile to begin governing an AI system."
+                 Style="{StaticResource BodyText}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center" />
+    </Border>
+  </Grid>
+</Page>

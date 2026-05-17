@@ -1,0 +1,137 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- ═══════════════════════════════════════════════
+       FONTS
+  ═══════════════════════════════════════════════ -->
+  <FontFamily x:Key="FontStreetReich">pack://application:,,,/Assets/Fonts/#Street Reich</FontFamily>
+  <FontFamily x:Key="FontGhostTheory">pack://application:,,,/Assets/Fonts/#Ghost Theory</FontFamily>
+  <FontFamily x:Key="FontGhostTheoryAlt">pack://application:,,,/Assets/Fonts/#Ghost Theory Alt</FontFamily>
+
+  <!-- ═══════════════════════════════════════════════
+       CORE COLORS  (from revenantsystems.net site.css)
+  ═══════════════════════════════════════════════ -->
+  <Color x:Key="ColorBlack">#FF010101</Color>
+  <Color x:Key="ColorGold">#FFD6A24A</Color>
+  <Color x:Key="ColorGoldBright">#FFF4D68F</Color>
+  <Color x:Key="ColorGoldDark">#FF8F5D18</Color>
+  <Color x:Key="ColorParchment">#FFEFE0B4</Color>
+  <Color x:Key="ColorMuted">#FFD6C598</Color>
+  <Color x:Key="ColorSageUndertone">#FF05362A</Color>
+
+  <!-- RAGE alert colors -->
+  <Color x:Key="ColorRageRed">#FFB91C1C</Color>
+  <Color x:Key="ColorRageAmber">#FFD97706</Color>
+
+  <!-- ═══════════════════════════════════════════════
+       BRUSHES
+  ═══════════════════════════════════════════════ -->
+  <SolidColorBrush x:Key="BrushBlack"        Color="{StaticResource ColorBlack}" />
+  <SolidColorBrush x:Key="BrushGold"         Color="{StaticResource ColorGold}" />
+  <SolidColorBrush x:Key="BrushGoldBright"   Color="{StaticResource ColorGoldBright}" />
+  <SolidColorBrush x:Key="BrushGoldDark"     Color="{StaticResource ColorGoldDark}" />
+  <SolidColorBrush x:Key="BrushParchment"    Color="{StaticResource ColorParchment}" />
+  <SolidColorBrush x:Key="BrushMuted"        Color="{StaticResource ColorMuted}" />
+  <SolidColorBrush x:Key="BrushRageRed"      Color="{StaticResource ColorRageRed}" />
+  <SolidColorBrush x:Key="BrushRageAmber"    Color="{StaticResource ColorRageAmber}" />
+
+  <SolidColorBrush x:Key="BrushPanelBg"      Color="#74000000" />
+  <SolidColorBrush x:Key="BrushNavBg"        Color="#9E000000" />
+  <SolidColorBrush x:Key="BrushOverlay"      Color="#26000000" />
+
+  <!-- Gold border at ~28% opacity -->
+  <SolidColorBrush x:Key="BrushBorder"       Color="#47D6A24A" />
+
+  <!-- Gold heading gradient -->
+  <LinearGradientBrush x:Key="BrushHeadingGold" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#FFFFE8A8" Offset="0.0" />
+    <GradientStop Color="#FFD9AB53" Offset="0.42" />
+    <GradientStop Color="#FF8F5D18" Offset="1.0" />
+  </LinearGradientBrush>
+
+  <!-- ═══════════════════════════════════════════════
+       PANEL CARD STYLE
+  ═══════════════════════════════════════════════ -->
+  <Style x:Key="PanelCard" TargetType="Border">
+    <Setter Property="Background"       Value="{StaticResource BrushPanelBg}" />
+    <Setter Property="BorderBrush"      Value="{StaticResource BrushBorder}" />
+    <Setter Property="BorderThickness"  Value="1" />
+    <Setter Property="CornerRadius"     Value="16" />
+    <Setter Property="Padding"          Value="20" />
+    <Setter Property="Effect">
+      <Setter.Value>
+        <DropShadowEffect Color="#000000" BlurRadius="32" ShadowDepth="0" Opacity="0.52" />
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ═══════════════════════════════════════════════
+       NAV TAB BUTTON STYLE
+  ═══════════════════════════════════════════════ -->
+  <Style x:Key="NavTab" TargetType="Button">
+    <Setter Property="Background"       Value="Transparent" />
+    <Setter Property="Foreground"       Value="{StaticResource BrushMuted}" />
+    <Setter Property="FontFamily"       Value="{StaticResource FontStreetReich}" />
+    <Setter Property="FontSize"         Value="13" />
+    <Setter Property="Padding"          Value="18,10" />
+    <Setter Property="BorderThickness"  Value="0" />
+    <Setter Property="Cursor"           Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                  BorderBrush="{StaticResource BrushBorder}"
+                  BorderThickness="0" CornerRadius="999"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="#28D6A24A" />
+              <Setter TargetName="Bd" Property="BorderThickness" Value="1" />
+              <Setter Property="Foreground" Value="{StaticResource BrushGoldBright}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- Active nav tab -->
+  <Style x:Key="NavTabActive" TargetType="Button" BasedOn="{StaticResource NavTab}">
+    <Setter Property="Background"      Value="#28D6A24A" />
+    <Setter Property="Foreground"      Value="{StaticResource BrushGoldBright}" />
+  </Style>
+
+  <!-- ═══════════════════════════════════════════════
+       HEADING TEXT STYLE
+  ═══════════════════════════════════════════════ -->
+  <Style x:Key="Heading1" TargetType="TextBlock">
+    <Setter Property="FontFamily"     Value="{StaticResource FontStreetReich}" />
+    <Setter Property="FontSize"       Value="36" />
+    <Setter Property="Foreground"     Value="{StaticResource BrushHeadingGold}" />
+    <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+  </Style>
+
+  <Style x:Key="Heading2" TargetType="TextBlock">
+    <Setter Property="FontFamily"     Value="{StaticResource FontStreetReich}" />
+    <Setter Property="FontSize"       Value="22" />
+    <Setter Property="Foreground"     Value="{StaticResource BrushGoldBright}" />
+  </Style>
+
+  <Style x:Key="BodyText" TargetType="TextBlock">
+    <Setter Property="FontFamily"     Value="{StaticResource FontGhostTheory}" />
+    <Setter Property="FontSize"       Value="13" />
+    <Setter Property="Foreground"     Value="{StaticResource BrushParchment}" />
+    <Setter Property="LineHeight"     Value="20" />
+    <Setter Property="TextWrapping"   Value="Wrap" />
+  </Style>
+
+  <Style x:Key="LabelText" TargetType="TextBlock">
+    <Setter Property="FontFamily"     Value="{StaticResource FontStreetReich}" />
+    <Setter Property="FontSize"       Value="11" />
+    <Setter Property="Foreground"     Value="{StaticResource BrushMuted}" />
+    <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+  </Style>
+
+</ResourceDictionary>

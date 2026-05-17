@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>SageRage.UI</AssemblyName>
+    <RootNamespace>SageRage.UI</RootNamespace>
+    <ApplicationIcon>Assets\Icons\saigerage.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SageRage.Core\SageRage.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Circuits\circuit1.png" />
+    <Resource Include="Assets\Circuits\circuit2.png" />
+    <Resource Include="Assets\Circuits\circuit3.png" />
+    <Resource Include="Assets\Circuits\circuit4.png" />
+    <Resource Include="Assets\Circuits\circuit5.png" />
+    <Resource Include="Assets\Circuits\circuit6.png" />
+    <Resource Include="Assets\Geometry\metatron.png" />
+    <Resource Include="Assets\Geometry\MetaVegvisirTronsCube_GOLD.png" />
+    <Resource Include="Assets\Geometry\VegVisir_GOLD.png" />
+    <Resource Include="Assets\Fonts\StreetReich.otf" />
+    <Resource Include="Assets\Fonts\GhostTheory1.ttf" />
+    <Resource Include="Assets\Fonts\GhostTheory2.ttf" />
+  </ItemGroup>
+</Project>
