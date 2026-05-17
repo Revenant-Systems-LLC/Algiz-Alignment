@@ -87,6 +87,8 @@ internal static class Program
     {
         Console.WriteLine("Select Provider:");
         Console.WriteLine($"  [G] Gemini Cloud     (REST \u2014 {GeminiLLMProvider.PrimaryModel})");
+        Console.WriteLine($"  [C] Claude/Anthropic (REST — {AnthropicProvider.PrimaryModel})");
+        Console.WriteLine($"  [P] OpenAI           (REST — {OpenAIProvider.PrimaryModel})");
         Console.WriteLine("  [L] LM Studio / GGUF (OpenAI-compatible, http://localhost:1234/v1)");
         Console.WriteLine("  [O] Ollama           (native API, http://localhost:11434)");
         Console.Write("\nProvider > ");
@@ -101,6 +103,26 @@ internal static class Program
         {
             switch (prov)
             {
+                case "C":
+                {
+                    Console.Write($"Model (Enter = {AnthropicProvider.PrimaryModel}) > ");
+                    var modelIn = Console.ReadLine()?.Trim();
+                    var model   = string.IsNullOrWhiteSpace(modelIn) ? null : modelIn;
+                    llm           = new AnthropicProvider(model: model);
+                    providerLabel = $"Anthropic ✅  [{(model ?? AnthropicProvider.PrimaryModel)}]";
+                    break;
+                }
+
+                case "P":
+                {
+                    Console.Write($"Model (Enter = {OpenAIProvider.PrimaryModel}) > ");
+                    var modelIn = Console.ReadLine()?.Trim();
+                    var model   = string.IsNullOrWhiteSpace(modelIn) ? null : modelIn;
+                    llm           = new OpenAIProvider(model: model);
+                    providerLabel = $"OpenAI ✅  [{(model ?? OpenAIProvider.PrimaryModel)}]";
+                    break;
+                }
+
                 case "L":
                 {
                     Console.Write("Base URL  (Enter = http://localhost:1234/v1) > ");
