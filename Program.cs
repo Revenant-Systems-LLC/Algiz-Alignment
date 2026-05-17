@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using SageRage;
 using SageRage.Domain;
 using SageRage.Infrastructure;
+using SageRage.Proxy;
 
 internal static class Program
 {
@@ -67,6 +68,7 @@ internal static class Program
         Console.WriteLine("\nSelect Mode:");
         Console.WriteLine("  [T] Text  \u2014 type messages, read responses");
         Console.WriteLine("  [A] Audio \u2014 mic in / audio out  (Gemini Live API)");
+        Console.WriteLine("  [X] Proxy \u2014 alignment proxy for any OpenAI-compatible API");
         Console.Write("\nMode > ");
 
         var mode = (Console.ReadLine()?.Trim() ?? "T").ToUpperInvariant();
@@ -74,6 +76,8 @@ internal static class Program
 
         if (mode == "A")
             await RunAudioMode(personaName, personaInstruction);
+        else if (mode == "X")
+            await RunProxyMode(personaInstruction);
         else
             await RunTextMode(personaName, personaInstruction);
 
@@ -379,4 +383,91 @@ internal static class Program
         if (micTask   is not null) await micTask.ContinueWith(_ => { });
         await receiveTask.ContinueWith(_ => { });
     }
+
+    // ───────────────────────────────────────────────
+    // PROXY MODE  (Alignment proxy server)
+    // ───────────────────────────────────────────────
+    private static async Task RunProxyMode(string? personaInstruction)
+    {
+        Console.WriteLine("\u2500\u2500 SAGE-RAGE Proxy Configuration \u2500\u2500\n");
+
+        Console.Write("Upstream LLM base URL (Enter = http://localhost:1234/v1) > ");
+        var upstreamInput = Console.ReadLine()?.Trim();
+        var upstreamUrl = string.IsNullOrWhiteSpace(upstreamInput)
+            ? "http://localhost:1234/v1"
+            : upstreamInput;
+
+        Console.Write("Proxy port (Enter = 9443) > ");
+        var portInput = Console.ReadLine()?.Trim();
+        var port = int.TryParse(portInput, out var p) ? p : 9443;
+
+        Console.WriteLine("\nPipeline options:");
+        Console.WriteLine("  [F] Full    \u2014 ethics + operators + guardrails (adds latency)");
+        Console.WriteLine("  [E] Ethics  \u2014 ethics checks only (fast)");
+        Console.WriteLine("  [P] Pass    \u2014 pass-through with logging only");
+        Console.Write("\nPipeline > ");
+
+        var pipelineChoice = (Console.ReadLine()?.Trim() ?? "F").ToUpperInvariant();
+
+        var enablePipeline = pipelineChoice == "F";
+        var enableEthics = pipelineChoice != "P";
+        var enableGuardrails = pipelineChoice == "F";
+
+        Console.Write("Log directory (Enter = none) > ");
+        var logDir = Console.ReadLine()?.Trim();
+        if (string.IsNullOrWhiteSpace(logDir)) logDir = null;
+
+        Console.Write("Upstream API key (Enter = use client-sent key) > ");
+        var apiKeyInput = Console.ReadLine()?.Trim();
+        var apiKey = string.IsNullOrWhiteSpace(apiKeyInput) ? null : apiKeyInput;
+
+        var config = new ProxyConfig
+        {
+            UpstreamBaseUrl = upstreamUrl,
+            Port = port,
+            EnablePipeline = enablePipeline,
+            EnableEthicsChecks = enableEthics,
+            EnableGuardrails = enableGuardrails,
+            LogDirectory = logDir,
+            UpstreamApiKey = apiKey,
+            PersonaInstruction = personaInstruction
+        };
+
+        Console.WriteLine();
+        Console.WriteLine($"Upstream : {config.UpstreamBaseUrl}");
+        Console.WriteLine($"Proxy    : {config.ListenUrl} \u2705");
+        Console.WriteLine($"Pipeline : {(enablePipeline ? "Full" : enableEthics ? "Ethics only" : "Pass-through")}");
+        Console.WriteLine($"Logging  : {(logDir ?? "disabled")}");
+        Console.WriteLine(new string('\u2500', 50));
+        Console.WriteLine();
+        Console.WriteLine("Point your application to:");
+        Console.WriteLine($"  {config.ListenUrl}/v1/chat/completions");
+        Console.WriteLine();
+        Console.WriteLine("Health check:");
+        Console.WriteLine($"  {config.ListenUrl}/health");
+        Console.WriteLine();
+        Console.WriteLine("Press Ctrl+C to stop.\n");
+
+        await using var server = new ProxyServer(config);
+
+        using var cts = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+            Console.WriteLine("\nShutting down proxy...");
+        };
+
+        await server.StartAsync(cts.Token);
+
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown
+        }
+    }
+
 }
