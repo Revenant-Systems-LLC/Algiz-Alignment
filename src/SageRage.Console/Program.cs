@@ -27,6 +27,21 @@ internal static class Program
         Console.WriteLine("\u03a9([\u21a6(\u039e, \u2205)]) \u2192 \u03c7");
         Console.WriteLine(new string('\u2500', 30));
 
+        // Setup check
+        if (args.Length > 0 && args[0].Equals("--setup", StringComparison.OrdinalIgnoreCase))
+        {
+            SecretLoader.RunSetup();
+            return;
+        }
+
+        if (!SecretLoader.IsConfigured())
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("First run detected. Running secrets setup...");
+            Console.ResetColor();
+            SecretLoader.RunSetup();
+        }
+
         // ── Persona Selection ────────────────────────────────
         Console.WriteLine("Select Agent Persona:");
         Console.WriteLine("  [1] Delta");
@@ -391,13 +406,90 @@ internal static class Program
     {
         Console.WriteLine("\u2500\u2500 SAGE-RAGE Proxy Configuration \u2500\u2500\n");
 
-        Console.Write("Upstream LLM base URL (Enter = http://localhost:1234/v1) > ");
-        var upstreamInput = Console.ReadLine()?.Trim();
-        var upstreamUrl = string.IsNullOrWhiteSpace(upstreamInput)
-            ? "http://localhost:1234/v1"
-            : upstreamInput;
+        // Step 1: Load secrets from configured location
+        string? apiKey = null;
+        var (secretsOk, secretKeys, secretsCfg) = SecretLoader.LoadFromConfig();
+        if (secretsOk)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"  Loaded {secretKeys.Count} keys from {secretsCfg.Profile}.env");
+            Console.ResetColor();
+        }
+        else
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine($"  Could not load {secretsCfg.Profile}.env from {secretsCfg.SecretsDir}");
+            Console.WriteLine("  Using environment variables only. Run with --setup to reconfigure.");
+            Console.ResetColor();
+        }
 
-        Console.Write("Proxy port (Enter = 9443) > ");
+        // Step 2: Select upstream provider
+        Console.WriteLine("\nSelect upstream provider:");
+        Console.WriteLine("  [O] OpenAI       (https://api.openai.com/v1)");
+        Console.WriteLine("  [G] Gemini       (https://generativelanguage.googleapis.com/v1beta/openai)");
+        Console.WriteLine("  [X] xAI / Grok   (https://api.x.ai/v1)");
+        Console.WriteLine("  [R] OpenRouter   (https://openrouter.ai/api/v1)");
+        Console.WriteLine("  [L] Local        (http://localhost:1234/v1)");
+        Console.WriteLine("  [C] Custom URL");
+        Console.Write("\nUpstream > ");
+
+        var provChoice = (Console.ReadLine()?.Trim() ?? "L").ToUpperInvariant();
+
+        string upstreamUrl;
+        string? envKeyName;
+        switch (provChoice)
+        {
+            case "O":
+                upstreamUrl = "https://api.openai.com/v1";
+                envKeyName = "OPENAI_API_KEY";
+                break;
+            case "G":
+                upstreamUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
+                envKeyName = "GEMINI_API_KEY";
+                break;
+            case "X":
+                upstreamUrl = "https://api.x.ai/v1";
+                envKeyName = "XAI_API_KEY";
+                break;
+            case "R":
+                upstreamUrl = "https://openrouter.ai/api/v1";
+                envKeyName = "OPENROUTER_API_KEY";
+                break;
+            case "C":
+                Console.Write("Custom base URL > ");
+                upstreamUrl = Console.ReadLine()?.Trim() ?? "http://localhost:1234/v1";
+                Console.Write("Env var name for API key (Enter = none) > ");
+                envKeyName = Console.ReadLine()?.Trim();
+                if (string.IsNullOrWhiteSpace(envKeyName)) envKeyName = null;
+                break;
+            default:
+                upstreamUrl = "http://localhost:1234/v1";
+                envKeyName = null;
+                break;
+        }
+
+        // Resolve the API key from environment (loaded from B drive or system)
+        if (envKeyName is not null)
+        {
+            apiKey = SecretLoader.GetKey(envKeyName);
+            if (apiKey is not null)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.WriteLine($"  API key resolved from {envKeyName}");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"  [ERROR] {envKeyName} not found in environment.");
+                Console.WriteLine("  Load secrets first (unlock B drive + Load-Secrets RSPF)");
+                Console.ResetColor();
+                return;
+            }
+        }
+
+        // Step 3: Proxy settings
+        Console.Write("\nProxy port (Enter = 9443) > ");
         var portInput = Console.ReadLine()?.Trim();
         var port = int.TryParse(portInput, out var p) ? p : 9443;
 
@@ -417,10 +509,6 @@ internal static class Program
         var logDir = Console.ReadLine()?.Trim();
         if (string.IsNullOrWhiteSpace(logDir)) logDir = null;
 
-        Console.Write("Upstream API key (Enter = use client-sent key) > ");
-        var apiKeyInput = Console.ReadLine()?.Trim();
-        var apiKey = string.IsNullOrWhiteSpace(apiKeyInput) ? null : apiKeyInput;
-
         var config = new ProxyConfig
         {
             UpstreamBaseUrl = upstreamUrl,
@@ -435,13 +523,16 @@ internal static class Program
 
         Console.WriteLine();
         Console.WriteLine($"Upstream : {config.UpstreamBaseUrl}");
+        Console.WriteLine($"API Key  : {(apiKey is not null ? "\u2705 loaded (hidden)" : "none / client-sent")}");
         Console.WriteLine($"Proxy    : {config.ListenUrl} \u2705");
         Console.WriteLine($"Pipeline : {(enablePipeline ? "Full" : enableEthics ? "Ethics only" : "Pass-through")}");
         Console.WriteLine($"Logging  : {(logDir ?? "disabled")}");
         Console.WriteLine(new string('\u2500', 50));
         Console.WriteLine();
-        Console.WriteLine("Point your application to:");
+        Console.WriteLine("Agents connect to:");
         Console.WriteLine($"  {config.ListenUrl}/v1/chat/completions");
+        Console.WriteLine();
+        Console.WriteLine("  No API key required \u2014 the proxy holds the real key.");
         Console.WriteLine();
         Console.WriteLine("Health check:");
         Console.WriteLine($"  {config.ListenUrl}/health");
