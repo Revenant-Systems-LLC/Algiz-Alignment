@@ -124,7 +124,7 @@ namespace SageRage.Guardrails
         }
     }
 
-    // ── IQualityCheck wrappers ─────────────────────────────────────────────────
+    // IQualityCheck wrappers
 
     public sealed class ClaimSanityQualityCheck : IQualityCheck
     {
@@ -150,9 +150,14 @@ namespace SageRage.Guardrails
         }
 
         private static QualityCheckResult ToResult(string? finding)
-            => finding == null
+        {
+            if (finding != null)
+                System.Diagnostics.Debug.WriteLine($"[NoPhantomCitations] Finding: {finding}");
+
+            return finding == null
                 ? new QualityCheckResult(true, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())
                 : new QualityCheckResult(false, new[] { finding }, Array.Empty<string>(), Array.Empty<string>());
+        }
     }
 
     public sealed class AnswerCompletenessQualityCheck : IQualityCheck
@@ -162,6 +167,10 @@ namespace SageRage.Guardrails
         public Task<QualityCheckResult> RunAsync(QualityCheckInput input, CancellationToken ct)
         {
             var finding = AnswerCompletenessCheck.Evaluate(input.UserText, input.DraftAnswer);
+
+            if (finding != null)
+                System.Diagnostics.Debug.WriteLine($"[AnswerCompleteness] Finding: {finding}");
+
             return Task.FromResult(finding == null
                 ? new QualityCheckResult(true, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())
                 : new QualityCheckResult(false, new[] { finding }, Array.Empty<string>(), Array.Empty<string>()));
@@ -175,6 +184,10 @@ namespace SageRage.Guardrails
         public Task<QualityCheckResult> RunAsync(QualityCheckInput input, CancellationToken ct)
         {
             var unsupported = GroundingVerifier.Evaluate(input.DraftAnswer, input.AnchorsPi);
+
+            if (unsupported.Count > 0)
+                System.Diagnostics.Debug.WriteLine($"[Grounding] Unsupported claims: {unsupported.Count}");
+
             return Task.FromResult(unsupported.Count == 0
                 ? new QualityCheckResult(true, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())
                 : new QualityCheckResult(false, Array.Empty<string>(), unsupported, Array.Empty<string>()));
@@ -188,6 +201,10 @@ namespace SageRage.Guardrails
         public Task<QualityCheckResult> RunAsync(QualityCheckInput input, CancellationToken ct)
         {
             var issues = SourceVerifier.Evaluate(input.UserText, input.AnchorsPi);
+
+            if (issues.Count > 0)
+                System.Diagnostics.Debug.WriteLine($"[SourceQuality] Issues: {issues.Count}");
+
             return Task.FromResult(issues.Count == 0
                 ? new QualityCheckResult(true, Array.Empty<string>(), Array.Empty<string>(), Array.Empty<string>())
                 : new QualityCheckResult(false, Array.Empty<string>(), Array.Empty<string>(), issues));

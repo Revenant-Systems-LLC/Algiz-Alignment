@@ -52,7 +52,11 @@ namespace SageRage.Infrastructure
                 if (e.BytesRecorded <= 0) return;
                 var chunk = new byte[e.BytesRecorded];
                 Buffer.BlockCopy(e.Buffer, 0, chunk, 0, e.BytesRecorded);
-                _channel.Writer.TryWrite(chunk);
+                if (!_channel.Writer.TryWrite(chunk))
+                {
+                    // Channel full or closed - drop chunk silently per BoundedChannelFullMode.DropOldest
+                    // In production, consider logging this to detect buffer saturation
+                }
             };
 
             _waveIn.RecordingStopped += (_, _) => _channel.Writer.TryComplete();

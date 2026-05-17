@@ -149,17 +149,43 @@ namespace SageRage.Infrastructure
                     else
                         json = Encoding.UTF8.GetString(ms.ToArray());
                 }
-                catch (OperationCanceledException) { terminate = true; }
-                catch (WebSocketException)         { terminate = true; }
-                catch (JsonException)               { /* skip malformed JSON frame */ }
-                catch (FormatException)            { /* skip malformed frame */ }
+                catch (OperationCanceledException)
+                {
+                    terminate = true;
+                }
+                catch (WebSocketException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GeminiLiveAudio] WebSocket receive failed: {ex.Message}");
+                    terminate = true;
+                }
+                catch (JsonException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GeminiLiveAudio] Malformed JSON frame skipped: {ex.Message}");
+                }
+                catch (FormatException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GeminiLiveAudio] Malformed frame skipped: {ex.Message}");
+                }
 
                 if (terminate) yield break;
                 if (json is null) continue;
 
                 List<LiveEvent> events;
-                try   { events = ParseEvents(json); }
-                catch { continue; }
+
+                try
+                {
+                    events = ParseEvents(json);
+                }
+                catch (JsonException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GeminiLiveAudio] Failed to parse live event JSON: {ex.Message}");
+                    continue;
+                }
+                catch (FormatException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[GeminiLiveAudio] Failed to decode live event payload: {ex.Message}");
+                    continue;
+                }
 
                 foreach (var evt in events)
                     yield return evt;

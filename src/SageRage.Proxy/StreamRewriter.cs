@@ -27,7 +27,7 @@ namespace SageRage.Proxy
 
             using var reader = new StreamReader(responseStream, Encoding.UTF8);
 
-            while (!reader.EndOfStream)
+            while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var line = await reader.ReadLineAsync(cancellationToken);
@@ -49,9 +49,10 @@ namespace SageRage.Proxy
                     if (delta is not null)
                         textBuilder.Append(delta);
                 }
-                catch (JsonException)
+                catch (JsonException ex)
                 {
                     // Malformed chunk — skip
+                    System.Diagnostics.Debug.WriteLine($"[StreamRewriter] Malformed SSE chunk: {ex.Message}");
                 }
             }
 
@@ -70,7 +71,7 @@ namespace SageRage.Proxy
             var textBuilder = new StringBuilder();
             using var reader = new StreamReader(upstreamBody, Encoding.UTF8);
 
-            while (!reader.EndOfStream)
+            while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var line = await reader.ReadLineAsync(cancellationToken);
@@ -94,7 +95,10 @@ namespace SageRage.Proxy
                             if (delta is not null)
                                 textBuilder.Append(delta);
                         }
-                        catch (JsonException) { }
+                        catch (JsonException ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[StreamRewriter] Malformed SSE chunk in pass-through: {ex.Message}");
+                        }
                     }
                 }
             }

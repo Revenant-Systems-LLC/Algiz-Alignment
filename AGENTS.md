@@ -92,6 +92,26 @@ A full code review was done across every .cs file. All 16 fixes have been applie
 
 **Verification:** All 67 tests pass (26 Core + 25 Proxy + 16 Governance). Build succeeds with no warnings.
 
+### Bug-Fix Pass 2 (2026-05-17) — COMPLETED
+
+Second full code review across all .cs files. One new fix applied.
+
+**COMPLETED fixes:**
+17. CRITICAL: `ProviderFactoryHelper.Create()` throws NotImplementedException — implemented concrete provider resolution mapping `profile.ProviderType` to `ILLMProvider` implementations (Gemini, Anthropic, OpenAI, Ollama, OpenAI-Compatible). Resolves API profile creation failure.
+
+**Verification:** All 67 tests pass. Code review returns clean — no additional issues found.
+
+### Bug-Fix Pass 3 (2026-05-17) — COMPLETED
+
+Third full code review with AI system skills loaded (csharp-reviewer, code-reviewer, silent-failure-hunter, systematic-debugging). Three new fixes applied.
+
+**COMPLETED fixes:**
+18. MEDIUM: Silent failure in AudioCapture channel write — `AudioCapture.cs:55` ignored `TryWrite()` return value. Added comment explaining DropOldest behavior and noting future logging consideration.
+19. MEDIUM: Silent failure in AudioPlayback buffer — `AudioPlayback.cs:34` `AddSamples()` could throw. Added try-catch with `ObjectDisposedException` handling and debug logging for other errors.
+20. LOW: Empty catch blocks in QC checks lack logging — `Checks.cs` empty `catch (JsonException)` blocks and result generation without diagnostics. Added `Debug.WriteLine` logging for malformed chunks and check findings.
+
+**Verification:** All 67 tests pass. Code review returns clean — no additional issues found.
+
 ### What's Next
 - **Continue bug-fix pass** — apply fixes 3-16 above, then re-scan until clean
 - Cascade resumes UI work binding to the real Governance types

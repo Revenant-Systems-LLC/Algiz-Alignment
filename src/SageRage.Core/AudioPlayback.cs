@@ -30,8 +30,22 @@ namespace SageRage.Infrastructure
         }
 
         /// <summary>Enqueue a PCM chunk for immediate playback.</summary>
-        public void QueueAudio(byte[] pcmChunk) =>
-            _buffer.AddSamples(pcmChunk, 0, pcmChunk.Length);
+        public void QueueAudio(byte[] pcmChunk)
+        {
+            try
+            {
+                _buffer.AddSamples(pcmChunk, 0, pcmChunk.Length);
+            }
+            catch (ObjectDisposedException)
+            {
+                // Playback stopped/disposed - ignore
+            }
+            catch (Exception ex)
+            {
+                // Log other errors (buffer overflow, etc.)
+                System.Diagnostics.Debug.WriteLine($"AudioPlayback error: {ex.Message}");
+            }
+        }
 
         public void Dispose()
         {
