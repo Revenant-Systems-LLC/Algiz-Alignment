@@ -12,3 +12,4 @@ Secrets.env
 node_modules/
 .next/
 out/
+AGENTS.md
