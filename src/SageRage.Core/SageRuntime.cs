@@ -137,7 +137,7 @@ namespace SageRage
         {
             var tokens         = _tokenizer.Encode(input);
             var output         = await GenerateAsync(input);
-            var attentionWeights = await _llm.GetAttentionWeightsAsync(tokens, cancellationToken);
+            var attentionWeights = await _llm.GetAttentionWeightsAsync(tokens);
             var concentration  = Metrics.GiniCoefficient(attentionWeights);
 
             return new OperatorResult

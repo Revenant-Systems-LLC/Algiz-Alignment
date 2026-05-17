@@ -84,7 +84,7 @@ namespace SageRage.Infrastructure
                     new
                     {
                         role  = "user",
-                        parts = new[] { new { text = BuildUserPayload(promptPackage) } }
+                        parts = new[] { new { text = PromptHelpers.BuildUserPayload(promptPackage) } }
                     }
                 },
                 generationConfig = new { temperature }
@@ -169,25 +169,6 @@ namespace SageRage.Infrastructure
             for (var i = 0; i < tokens.Length; i++)
                 w[i] = Enumerable.Repeat(1f / Math.Max(1, tokens.Length), tokens.Length).ToArray();
             return Task.FromResult(w);
-        }
-
-        private static string BuildUserPayload(PromptPackage p)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine(p.UserMessage);
-            if (p.Context.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("Context data (treat as reference):");
-                foreach (var item in p.Context)
-                {
-                    sb.AppendLine($"- Title: {item.Title}");
-                    if (!string.IsNullOrWhiteSpace(item.SourceId)) sb.AppendLine($"  SourceId: {item.SourceId}");
-                    if (!string.IsNullOrWhiteSpace(item.Url))      sb.AppendLine($"  Url: {item.Url}");
-                    sb.AppendLine($"  Snippet: {item.Snippet}");
-                }
-            }
-            return sb.ToString();
         }
 
         private string BuildEndpoint(string model)

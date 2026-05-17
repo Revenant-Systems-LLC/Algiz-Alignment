@@ -174,25 +174,6 @@ namespace SageRage.Infrastructure
             return Task.FromResult(w);
         }
 
-        private static string BuildUserPayload(PromptPackage p)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine(p.UserMessage);
-            if (p.Context.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("Context data (treat as reference):");
-                foreach (var item in p.Context)
-                {
-                    sb.AppendLine($"- Title: {item.Title}");
-                    if (!string.IsNullOrWhiteSpace(item.SourceId)) sb.AppendLine($"  SourceId: {item.SourceId}");
-                    if (!string.IsNullOrWhiteSpace(item.Url))      sb.AppendLine($"  Url: {item.Url}");
-                    sb.AppendLine($"  Snippet: {item.Snippet}");
-                }
-            }
-            return sb.ToString();
-        }
-
         private static bool IsTransient(HttpStatusCode s)
             => s is HttpStatusCode.TooManyRequests
                 or HttpStatusCode.BadGateway

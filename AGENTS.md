@@ -68,36 +68,29 @@ the governance foundation was built and should now be resumed.
 - System environment variables with API keys removed (user-level all cleared,
   machine-level BRAVE_API_KEY and NEWS_API_KEY intentionally left as free-tier)
 
-### Bug-Fix Pass (2026-05-17) — IN PROGRESS
+### Bug-Fix Pass (2026-05-17) — COMPLETED
 
-A full code review was done across every .cs file. Fixes are partially applied.
-The next session should continue from where this left off.
+A full code review was done across every .cs file. All 16 fixes have been applied and verified.
 
 **COMPLETED fixes:**
 1. CRITICAL: Sync-over-async deadlock in `SageGuardrailController.Evaluate()` — removed the `.GetAwaiter().GetResult()` wrapper, replaced sync `Evaluate()` with async `EvaluateAsync()` convenience overload, updated all 3 callers (SageAgent, GovernedEngine, ProxyPipeline) to `await EvaluateAsync()`.
 2. CRITICAL: Gemini API key exposed in URL query string — `GeminiLLMProvider.BuildEndpoint()` now uses `x-goog-api-key` header instead of `?key=`. `GeminiLiveAudioProvider` WebSocket uses `ws.Options.SetRequestHeader()`.
+3. CRITICAL: HttpClient lifecycle — All providers (`AnthropicProvider`, `OpenAIProvider`, `GeminiLLMProvider`, `OllamaProvider`, `OpenAICompatibleProvider`) now implement `IDisposable` with `_ownsHttpClient` flag. Only self-created clients are disposed.
+4. HIGH: Race condition in `GovernedEngine` — `_statsLock` is now used around all metric writes/reads for `_status`, `_locked`, `_lockReason`, `_statusDetail`, and `_lastActivityAt`.
+5. HIGH: Empty `Dispose()` in `SageRuntime` — now disposes `_llm` if it implements `IDisposable`.
+6. HIGH: `SecretLoader.LoadConfig()` bare catch — now catches `JsonException` specifically, lets other exceptions propagate.
+7. HIGH: `SageMetrics.CalculatePerplexity()` — returns `float.MaxValue` for empty text instead of `0f`.
+8. HIGH: `ProxyPipeline.ProcessResponse()` — `_engine` is now cached/injected in constructor instead of created per request.
+9. MEDIUM: API endpoints (`/api/profiles/{id}/start`, `/stop`, `/reset`) — now catch `KeyNotFoundException` and return 404 instead of 500.
+10. MEDIUM: `SageRuntime.ExecuteChi` — changed `1.0f / best.perplexity` to `1.0f / (1.0f + best.perplexity)` to avoid Infinity.
+11. MEDIUM: `GeminiLiveSession.ReceiveAsync` — now catches `JsonException` and `FormatException` specifically instead of bare catch.
+12. MEDIUM: `OpenAICompatibleProvider.GenerateAsync` — now calls `EnsureSuccessStatusCode()` before parsing JSON.
+13. MEDIUM: `ILLMProvider.GetEmbeddingAsync` and `GetAttentionWeightsAsync` — now have `CancellationToken` parameter with default value. Updated interface and all implementations (including test mocks).
+14. MEDIUM: `SimpleWhitespaceTokenizer.Encode` — replaced `string.GetHashCode()` with deterministic FNV-1a hash.
+15. MEDIUM: `_statsLock` in `GovernedEngine` — covered by fix #4.
+16. MEDIUM: `BuildUserPayload` — extracted to shared static helper `PromptHelpers.BuildUserPayload()`. Removed duplicate implementations from `AnthropicProvider`, `OpenAIProvider`, `GeminiLLMProvider`.
 
-**REMAINING fixes (not yet applied):**
-
-CRITICAL:
-3. HttpClient lifecycle — `AnthropicProvider`, `OpenAIProvider`, `GeminiLLMProvider`, `OllamaProvider`, `OpenAICompatibleProvider` all create `new HttpClient()` but never dispose it and don't implement `IDisposable`. Socket exhaustion under load. Fix: implement `IDisposable`, dispose only self-created clients.
-
-HIGH:
-4. Race condition in `GovernedEngine` — `_statsLock` is declared but never used. `_lastActivityAt`, `_locked`, `_lockReason`, `_status`, `_statusDetail`, and all `_last*` metrics are written without synchronization while `_totalRequests` uses `Interlocked`. Fix: use `_statsLock` around metric writes/reads, or make fields volatile.
-5. Empty `Dispose()` in `SageRuntime` — implements `IDisposable` but body is `{}`. Holds `_llm` reference. Fix: dispose `_llm` if it implements `IDisposable`, or remove `IDisposable`.
-6. `SecretLoader.LoadConfig()` bare catch — `catch { return new SecretsConfig(); }` silently swallows ALL exceptions including disk errors. Fix: catch `JsonException` specifically, let others propagate.
-7. `SageMetrics.CalculatePerplexity()` returns `0f` for empty text — but `ExecuteChi` selects the candidate with LOWEST entropy. Empty/failed responses get picked as "best". Fix: return `float.MaxValue` for empty text.
-8. `ProxyPipeline.ProcessResponse()` creates `new RageEngine(llm)` per request — unnecessary allocation under load. Fix: cache or inject the engine.
-
-MEDIUM:
-9. API endpoints (`/api/profiles/{id}/start`, `/stop`, `/reset`) don't catch `KeyNotFoundException` — returns 500 instead of 404. Fix: check `HasProfile()` first or try/catch.
-10. `SageRuntime.ExecuteChi` — `1.0f / best.perplexity` can be `Infinity` when perplexity is 0. Fix: use `1.0f / (1.0f + best.perplexity)`.
-11. `GeminiLiveSession.ReceiveAsync` — bare `catch { }` swallows all exceptions including `OutOfMemoryException`. Fix: catch `JsonException`/`FormatException` specifically.
-12. `OpenAICompatibleProvider.GenerateAsync` — doesn't call `EnsureSuccessStatusCode()` before parsing JSON. Error responses cause confusing `KeyNotFoundException`. Fix: add status check.
-13. `ILLMProvider.GetEmbeddingAsync` and `GetAttentionWeightsAsync` — no `CancellationToken` parameter. Fix: add to interface and all implementations.
-14. `SimpleWhitespaceTokenizer.Encode` — uses `string.GetHashCode()` which is non-deterministic in .NET Core (randomized per-process). Fix: use FNV-1a or similar deterministic hash.
-15. `_statsLock` in `GovernedEngine` — declared, never used. Covered by fix #4.
-16. `BuildUserPayload` — identical ~15-line method copy-pasted in `AnthropicProvider`, `OpenAIProvider`, `GeminiLLMProvider`. Fix: extract to shared static helper.
+**Verification:** All 67 tests pass (26 Core + 25 Proxy + 16 Governance). Build succeeds with no warnings.
 
 ### What's Next
 - **Continue bug-fix pass** — apply fixes 3-16 above, then re-scan until clean
