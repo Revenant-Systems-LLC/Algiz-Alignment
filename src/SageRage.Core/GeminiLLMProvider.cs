@@ -22,12 +22,18 @@ namespace SageRage.Infrastructure
         public const string PrimaryModel  = "gemini-2.0-flash";
         public const string FallbackModel = "gemini-2.0-flash-lite";
 
+        private static readonly HashSet<string> AllowedModels = new(StringComparer.OrdinalIgnoreCase)
+        {
+            PrimaryModel,
+            FallbackModel
+        };
+
         private readonly HttpClient _httpClient;
         private readonly string     _apiKey;
         private readonly string     _preferredModel;
 
         /// <param name="geminiLiveApiKey">Optional explicit key; falls back to GEMINI_API_KEY env var.</param>
-        /// <param name="model">Any Gemini REST model name; defaults to <see cref="PrimaryModel"/>.</param>
+        /// <param name="model">Must be <see cref="PrimaryModel"/> or <see cref="FallbackModel"/>; defaults to PrimaryModel.</param>
         public GeminiLLMProvider(
             string?     geminiLiveApiKey = null,
             HttpClient? httpClient       = null,
@@ -44,7 +50,11 @@ namespace SageRage.Infrastructure
             _apiKey         = resolvedKey;
             _httpClient     = httpClient ?? new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(45);
-            _preferredModel = string.IsNullOrWhiteSpace(model) ? PrimaryModel : model;
+            var resolved = string.IsNullOrWhiteSpace(model) ? PrimaryModel : model;
+            if (!AllowedModels.Contains(resolved))
+                throw new InvalidOperationException(
+                    $"Model '{resolved}' is not in the allowed list. Use PrimaryModel or FallbackModel.");
+            _preferredModel = resolved;
         }
 
         public Task<string> GenerateAsync(
