@@ -35,10 +35,12 @@ namespace SageRage.Proxy
     {
         private readonly RageEthicsStack _ethics = new();
         private readonly ProxyConfig _config;
+        private readonly RageEngine _engine;
 
-        public ProxyPipeline(ProxyConfig config)
+        public ProxyPipeline(ProxyConfig config, ILLMProvider llm)
         {
             _config = config;
+            _engine = new RageEngine(llm);
         }
 
         /// <summary>
@@ -56,13 +58,10 @@ namespace SageRage.Proxy
 
         /// <summary>
         /// Run the full pipeline on an LLM response: ethics check, operators, guardrails.
-        /// Requires an <see cref="ILLMProvider"/> for operator execution (Omega/Chi/Sigma
-        /// call back into the LLM for refinement).
         /// </summary>
         public async Task<PipelineResult> ProcessResponse(
             string userText,
             string responseText,
-            ILLMProvider llm,
             CancellationToken cancellationToken = default)
         {
             // 1. Ethics check on output
@@ -88,10 +87,9 @@ namespace SageRage.Proxy
 
             if (_config.EnablePipeline)
             {
-                var engine = new RageEngine(llm);
                 var state = new SageState { Text = responseText };
 
-                var transformed = await engine.ExecuteSequence(
+                var transformed = await _engine.ExecuteSequence(
                     _config.Operators, state, cancellationToken);
 
                 processedText = transformed.Text;
@@ -108,7 +106,7 @@ namespace SageRage.Proxy
             {
                 var qcContext = BuildQcContext(userText);
                 var profile = SageProfileSelector.Select(userText, qcContext);
-                var qcResult = SageGuardrailController.Evaluate(
+                var qcResult = await SageGuardrailController.EvaluateAsync(
                     userText, processedText, Array.Empty<ContextItem>(), profile, qcContext);
 
                 guardrailPassed = qcResult.Passed;

@@ -145,7 +145,7 @@ namespace SageRage.Infrastructure
                 var json = File.ReadAllText(ConfigFile);
                 return JsonSerializer.Deserialize<SecretsConfig>(json) ?? new SecretsConfig();
             }
-            catch
+            catch (JsonException)
             {
                 return new SecretsConfig();
             }

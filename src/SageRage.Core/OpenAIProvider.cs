@@ -17,7 +17,7 @@ namespace SageRage.Infrastructure
     /// For local OpenAI-compatible servers (LM Studio, vLLM, etc.),
     /// use <see cref="OpenAICompatibleProvider"/> instead.
     /// </summary>
-    public sealed class OpenAIProvider : ILLMProvider
+    public sealed class OpenAIProvider : ILLMProvider, IDisposable
     {
         public const string PrimaryModel   = "gpt-4o";
         public const string FallbackModel  = "gpt-4o-mini";
@@ -26,6 +26,7 @@ namespace SageRage.Infrastructure
         private const string BaseUrl = "https://api.openai.com/v1";
 
         private readonly HttpClient _httpClient;
+        private readonly bool _ownsHttpClient;
         private readonly string     _apiKey;
         private readonly string     _preferredModel;
 
@@ -45,6 +46,7 @@ namespace SageRage.Infrastructure
                     "Missing OpenAI API key. Provide it directly or set OPENAI_API_KEY.");
 
             _apiKey         = resolvedKey;
+            _ownsHttpClient = httpClient is null;
             _httpClient     = httpClient ?? new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(60);
             _preferredModel = string.IsNullOrWhiteSpace(model) ? PrimaryModel : model;
@@ -150,7 +152,7 @@ namespace SageRage.Infrastructure
                 "OpenAI request failed after retries and fallback.", lastError);
         }
 
-        public async Task<float[]> GetEmbeddingAsync(string text)
+        public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
             var payload = new { model = EmbeddingModel, input = text };
 
@@ -165,10 +167,10 @@ namespace SageRage.Infrastructure
 
             request.Headers.Add("Authorization", $"Bearer {_apiKey}");
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             using var doc = JsonDocument.Parse(json);
 
             return doc.RootElement
@@ -179,7 +181,7 @@ namespace SageRage.Infrastructure
                 .ToArray();
         }
 
-        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
         {
             // OpenAI does not expose raw attention weights.
             // Uniform approximation consistent with other providers.
@@ -217,5 +219,13 @@ namespace SageRage.Infrastructure
 
         private static bool IsModelIssue(HttpStatusCode s)
             => s is HttpStatusCode.NotFound or HttpStatusCode.BadRequest;
+
+        public void Dispose()
+        {
+            if (_ownsHttpClient)
+            {
+                _httpClient.Dispose();
+            }
+        }
     }
 }

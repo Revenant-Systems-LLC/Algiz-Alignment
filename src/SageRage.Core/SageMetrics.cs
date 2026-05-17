@@ -13,9 +13,9 @@ public class SageMetrics
         _llm = llm;
     }
 
-    public async Task<float[]> GetEmbedding(string text)
+    public async Task<float[]> GetEmbedding(string text, CancellationToken cancellationToken = default)
     {
-        return await _llm.GetEmbeddingAsync(text);
+        return await _llm.GetEmbeddingAsync(text, cancellationToken);
     }
 
     public float CosineSimilarity(float[] vectorA, float[] vectorB)
@@ -48,11 +48,11 @@ public class SageMetrics
         // This is a simplified perplexity estimation
         // In a real implementation, this would use model log probabilities
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length == 0) return 0f;
+        if (words.Length == 0) return float.MaxValue;
 
         // Use embedding variance as a proxy for perplexity
         var embedding = await GetEmbedding(text);
-        if (embedding.Length == 0) return 1f;
+        if (embedding.Length == 0) return float.MaxValue;
 
         var mean = embedding.Average();
         var variance = embedding.Sum(x => Math.Pow(x - mean, 2)) / embedding.Length;

@@ -8,15 +8,14 @@ namespace SageRage.Guardrails
 {
     public static class SageGuardrailController
     {
-        public static SageCheckResult Evaluate(
+        public static Task<SageCheckResult> EvaluateAsync(
             string userText,
             string response,
             IReadOnlyList<ContextItem> anchors,
             SageProfile profile,
-            QCContext context)
-            => EvaluateAsync(userText, response, anchors, profile, context, SageGuardrailRegistry.CreateDefault(), CancellationToken.None)
-                .GetAwaiter()
-                .GetResult();
+            QCContext context,
+            CancellationToken cancellationToken = default)
+            => EvaluateAsync(userText, response, anchors, profile, context, SageGuardrailRegistry.CreateDefault(), cancellationToken);
 
         public static async Task<SageCheckResult> EvaluateAsync(
             string userText,

@@ -15,7 +15,7 @@ namespace SageRage.Infrastructure
     /// Provider for Anthropic Claude models via the Messages API.
     /// Requires ANTHROPIC_API_KEY environment variable or explicit key.
     /// </summary>
-    public sealed class AnthropicProvider : ILLMProvider
+    public sealed class AnthropicProvider : ILLMProvider, IDisposable
     {
         public const string PrimaryModel  = "claude-sonnet-4-20250514";
         public const string FallbackModel = "claude-haiku-4-20250414";
@@ -24,6 +24,7 @@ namespace SageRage.Infrastructure
         private const string BaseUrl    = "https://api.anthropic.com/v1";
 
         private readonly HttpClient _httpClient;
+        private readonly bool _ownsHttpClient;
         private readonly string     _apiKey;
         private readonly string     _preferredModel;
 
@@ -43,6 +44,7 @@ namespace SageRage.Infrastructure
                     "Missing Anthropic API key. Provide it directly or set ANTHROPIC_API_KEY.");
 
             _apiKey         = resolvedKey;
+            _ownsHttpClient = httpClient is null;
             _httpClient     = httpClient ?? new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(60);
             _preferredModel = string.IsNullOrWhiteSpace(model) ? PrimaryModel : model;
@@ -72,7 +74,7 @@ namespace SageRage.Infrastructure
                 system     = promptPackage.SystemInstruction,
                 messages   = new[]
                 {
-                    new { role = "user", content = BuildUserPayload(promptPackage) }
+                    new { role = "user", content = PromptHelpers.BuildUserPayload(promptPackage) }
                 },
                 temperature
             };
@@ -94,7 +96,7 @@ namespace SageRage.Infrastructure
                     system     = promptPackage.SystemInstruction,
                     messages   = new[]
                     {
-                        new { role = "user", content = BuildUserPayload(promptPackage) }
+                        new { role = "user", content = PromptHelpers.BuildUserPayload(promptPackage) }
                     },
                     temperature
                 };
@@ -161,10 +163,10 @@ namespace SageRage.Infrastructure
                 "Anthropic request failed after retries and fallback.", lastError);
         }
 
-        public Task<float[]> GetEmbeddingAsync(string text)
+        public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
             => Task.FromResult(Array.Empty<float>());
 
-        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
         {
             var w = new float[tokens.Length][];
             for (var i = 0; i < tokens.Length; i++)
@@ -200,5 +202,13 @@ namespace SageRage.Infrastructure
 
         private static bool IsModelIssue(HttpStatusCode s)
             => s is HttpStatusCode.NotFound or HttpStatusCode.BadRequest;
+
+        public void Dispose()
+        {
+            if (_ownsHttpClient)
+            {
+                _httpClient.Dispose();
+            }
+        }
     }
 }

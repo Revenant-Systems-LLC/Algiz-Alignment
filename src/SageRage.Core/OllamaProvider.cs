@@ -14,19 +14,22 @@ namespace SageRage.Infrastructure
     // Implementation: Ollama (local) — works with LLaMA,
     // Mistral, Phi, Gemma, etc. — whatever you have running
     // -------------------------------------------------------
-    public class OllamaProvider : ILLMProvider
+    public class OllamaProvider : ILLMProvider, IDisposable
     {
         private readonly HttpClient _http;
+        private readonly bool _ownsHttpClient;
         private readonly string _model;
         private readonly string _baseUrl;
 
         public OllamaProvider(
             string model = "llama3",
-            string baseUrl = "http://localhost:11434")
+            string baseUrl = "http://localhost:11434",
+            HttpClient? httpClient = null)
         {
             _model = model;
             _baseUrl = baseUrl;
-            _http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            _ownsHttpClient = httpClient is null;
+            _http = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
         }
 
         public async Task<string> GenerateAsync(
@@ -76,7 +79,7 @@ namespace SageRage.Infrastructure
             return GenerateAsync(builder.ToString(), temperature, cancellationToken);
         }
 
-        public async Task<float[]> GetEmbeddingAsync(string text)
+        public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
         {
             var payload = new { model = _model, prompt = text };
 
@@ -86,16 +89,17 @@ namespace SageRage.Infrastructure
                     JsonSerializer.Serialize(payload),
                     Encoding.UTF8,
                     "application/json"
-                )
+                ),
+                cancellationToken
             );
 
             response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var result = JsonSerializer.Deserialize<OllamaEmbeddingResponse>(json);
             return result?.Embedding ?? Array.Empty<float>();
         }
 
-        public async Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+        public async Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
         {
             // Ollama doesn't expose raw attention weights.
             // We approximate using embedding distance between token windows.
@@ -123,5 +127,13 @@ namespace SageRage.Infrastructure
 
         private record OllamaEmbeddingResponse(
             [property: JsonPropertyName("embedding")] float[] Embedding);
+
+        public void Dispose()
+        {
+            if (_ownsHttpClient)
+            {
+                _http.Dispose();
+            }
+        }
     }
 }

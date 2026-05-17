@@ -43,10 +43,10 @@ public class AgentSafetyTests
         public Task<string> GenerateAsync(PromptPackage promptPackage, float temperature = 0.2f, CancellationToken cancellationToken = default)
             => Task.FromResult("ok");
 
-        public Task<float[]> GetEmbeddingAsync(string text)
+        public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
             => Task.FromResult(new[] { 1f, 0f, 0f });
 
-        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
             => Task.FromResult(new[] { new[] { 1f } });
     }
 }

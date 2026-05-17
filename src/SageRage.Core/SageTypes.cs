@@ -160,11 +160,25 @@ namespace SageRage.Domain
     {
         public int[] Encode(string text)
             => text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Select(w => Math.Abs(w.GetHashCode()) % 50000)
+                .Select(w => Fnv1aHash(w) % 50000)
                 .ToArray();
 
         public string Decode(int[] tokens)
             => string.Join(" ", tokens.Select(t => t.ToString()));
+
+        private static int Fnv1aHash(string text)
+        {
+            const uint FnvPrime = 16777619;
+            const uint FnvOffsetBasis = 2166136261;
+
+            uint hash = FnvOffsetBasis;
+            foreach (byte b in System.Text.Encoding.UTF8.GetBytes(text))
+            {
+                hash ^= b;
+                hash *= FnvPrime;
+            }
+            return (int)hash;
+        }
     }
 
     public static class StringExtensions

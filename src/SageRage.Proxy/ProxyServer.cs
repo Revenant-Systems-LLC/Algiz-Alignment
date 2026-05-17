@@ -32,7 +32,6 @@ namespace SageRage.Proxy
         public ProxyServer(ProxyConfig config)
         {
             _config = config;
-            _pipeline = new ProxyPipeline(config);
             _upstream = new HttpClient { Timeout = config.UpstreamTimeout };
 
             // The pipeline LLM is used by operators (Omega, Chi, Sigma) for
@@ -41,6 +40,8 @@ namespace SageRage.Proxy
                 baseUrl: config.UpstreamBaseUrl,
                 model: "proxy-passthrough",
                 apiKey: config.UpstreamApiKey ?? "not-needed");
+
+            _pipeline = new ProxyPipeline(config, _pipelineLlm);
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -184,7 +185,7 @@ namespace SageRage.Proxy
 
             // Run through SAGE-RAGE pipeline
             var result = await _pipeline.ProcessResponse(
-                userText, responseText, _pipelineLlm, ctx.RequestAborted);
+                userText, responseText, ctx.RequestAborted);
 
             if (result.Blocked)
             {

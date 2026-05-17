@@ -577,13 +577,13 @@ internal sealed class FakeProvider : ILLMProvider
     public Task<string> GenerateAsync(PromptPackage promptPackage, float temperature = 0.2f, CancellationToken cancellationToken = default)
         => Task.FromResult(promptPackage.UserMessage + " [generated]");
 
-    public Task<float[]> GetEmbeddingAsync(string text)
+    public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
     {
         var len = text.Length == 0 ? 1 : text.Length;
         return Task.FromResult(new[] { 1f, len / 100f, 0.5f });
     }
 
-    public Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+    public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
     {
         var size = tokens.Length == 0 ? 1 : tokens.Length;
         var matrix = new List<float[]>();

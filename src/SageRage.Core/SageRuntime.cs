@@ -105,7 +105,7 @@ namespace SageRage
                 Metadata = new Dictionary<string, object>
                 {
                     ["perplexity"]      = best.perplexity,
-                    ["coherence_score"] = 1.0f / best.perplexity
+                    ["coherence_score"] = 1.0f / (1.0f + best.perplexity)
                 }
             };
         }
@@ -137,7 +137,7 @@ namespace SageRage
         {
             var tokens         = _tokenizer.Encode(input);
             var output         = await GenerateAsync(input);
-            var attentionWeights = await _llm.GetAttentionWeightsAsync(tokens);
+            var attentionWeights = await _llm.GetAttentionWeightsAsync(tokens, cancellationToken);
             var concentration  = Metrics.GiniCoefficient(attentionWeights);
 
             return new OperatorResult
@@ -203,7 +203,13 @@ namespace SageRage
                     w.Contains(m, StringComparison.OrdinalIgnoreCase)));
         }
 
-        public void Dispose() { /* No unmanaged resources with HTTP provider */ }
+        public void Dispose()
+        {
+            if (_llm is IDisposable disposableLlm)
+            {
+                disposableLlm.Dispose();
+            }
+        }
     }
 
 }

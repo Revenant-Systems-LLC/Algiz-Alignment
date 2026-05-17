@@ -9,3 +9,6 @@ obj/
 .env
 Secrets.env
 *.env
+node_modules/
+.next/
+out/

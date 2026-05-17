@@ -49,15 +49,15 @@
             </StackPanel>
             <TextBlock Style="{StaticResource BodyText}" Margin="0,0,0,4">
               <Run Foreground="{StaticResource BrushMuted}">Upstream: </Run>
-              <Run Text="{Binding ProxyUpstream}" />
+              <Run Text="{Binding ProxyUpstream, Mode=OneWay}" />
             </TextBlock>
             <TextBlock Style="{StaticResource BodyText}" Margin="0,0,0,4">
               <Run Foreground="{StaticResource BrushMuted}">Port: </Run>
-              <Run Text="{Binding ProxyPort}" />
+              <Run Text="{Binding ProxyPort, Mode=OneWay}" />
             </TextBlock>
             <TextBlock Style="{StaticResource BodyText}">
               <Run Foreground="{StaticResource BrushMuted}">Uptime: </Run>
-              <Run Text="{Binding ProxyUptime}" />
+              <Run Text="{Binding ProxyUptime, Mode=OneWay}" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -86,7 +86,7 @@
             </Grid>
             <TextBlock Style="{StaticResource BodyText}">
               <Run Foreground="{StaticResource BrushMuted}">Flag Rate: </Run>
-              <Run Text="{Binding FlagRate}" />
+              <Run Text="{Binding FlagRate, Mode=OneWay}" />
             </TextBlock>
           </StackPanel>
         </Border>
@@ -118,7 +118,7 @@
                         Width="{Binding Malice, Converter={StaticResource PctToWidth}}"
                         MinWidth="4" MaxWidth="200" />
               </Border>
-              <TextBlock Text="{Binding MaliceText}"
+              <TextBlock Text="{Binding MaliceText, Mode=OneWay}"
                          Style="{StaticResource LabelText}"
                          Foreground="{Binding VamGlyphBrush}"
                          Margin="12,0,0,0"
@@ -186,7 +186,7 @@
           <TextBlock Grid.Column="1" VerticalAlignment="Center"
                      Style="{StaticResource BodyText}" Opacity="0.7">
             <Run Foreground="{StaticResource BrushMuted}">Profile: </Run>
-            <Run Text="{Binding SecretsProfile}" />
+            <Run Text="{Binding SecretsProfile, Mode=OneWay}" />
           </TextBlock>
 
           <Button Grid.Column="2" Content="RUN SETUP"

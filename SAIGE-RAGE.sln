@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SageRage.Proxy", "src\SageR
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SageRage.UI", "src\SageRage.UI\SageRage.UI.csproj", "{A1B2C3D4-0006-0006-0006-000000000006}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SageRage.Api", "src\SageRage.Api\SageRage.Api.csproj", "{A1B2C3D4-0008-0008-0008-000000000008}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SageRage.Core.Tests", "tests\SageRage.Core.Tests\SageRage.Core.Tests.csproj", "{A1B2C3D4-0004-0004-0004-000000000004}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SageRage.Proxy.Tests", "Tests\SageRage.Proxy.Tests\SageRage.Proxy.Tests.csproj", "{A1B2C3D4-0007-0007-0007-000000000007}"

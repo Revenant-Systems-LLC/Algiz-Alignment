@@ -1,0 +1,35 @@
+:root {
+  --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  --bg-base:      #10141A;
+  --bg-surface:   #161B22;
+  --bg-elevated:  #1C2330;
+  --border:       #2A3344;
+  --gold:         #C0A96A;
+  --gold-bright:  #D4BF8A;
+  --text-primary: #E4E7EC;
+  --text-muted:   #9AA3B0;
+  --rage-red:     #E15B64;
+  --amber:        #F0B44A;
+  --teal:         #45A58B;
+  --blue:         #4A8BD8;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter);
+  font-size: 13px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+.font-mono { font-family: var(--font-mono) !important; }

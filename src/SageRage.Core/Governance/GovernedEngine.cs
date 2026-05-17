@@ -57,33 +57,60 @@ public sealed class GovernedEngine
     public GovernanceProfile Profile => _profile;
 
     /// <summary>Current governance status.</summary>
-    public GovernanceStatus Status => _status;
+    public GovernanceStatus Status
+    {
+        get
+        {
+            lock (_statsLock)
+            {
+                return _status;
+            }
+        }
+    }
 
     /// <summary>Whether the agent is locked due to Layer 0 violation.</summary>
-    public bool IsLocked => _locked;
+    public bool IsLocked
+    {
+        get
+        {
+            lock (_statsLock)
+            {
+                return _locked;
+            }
+        }
+    }
 
     /// <summary>Start governing. Sets status to Running.</summary>
     public void Start()
     {
-        _status = GovernanceStatus.Running;
-        _startedAt = DateTimeOffset.UtcNow;
-        _statusDetail = null;
+        lock (_statsLock)
+        {
+            _status = GovernanceStatus.Running;
+            _startedAt = DateTimeOffset.UtcNow;
+            _statusDetail = null;
+        }
     }
 
     /// <summary>Stop governing. Sets status to Idle.</summary>
     public void Stop()
     {
-        _status = GovernanceStatus.Idle;
-        _statusDetail = null;
+        lock (_statsLock)
+        {
+            _status = GovernanceStatus.Idle;
+            _statusDetail = null;
+        }
     }
 
     /// <summary>Human reset after a Layer 0 lock.</summary>
     public void ResetLock()
     {
-        _locked = false;
-        _lockReason = null;
-        if (_status == GovernanceStatus.Blocked)
-            _status = GovernanceStatus.Running;
+        lock (_statsLock)
+        {
+            _locked = false;
+            _lockReason = null;
+            if (_status == GovernanceStatus.Blocked)
+                _status = GovernanceStatus.Running;
+        }
     }
 
     /// <summary>
@@ -104,7 +131,10 @@ public sealed class GovernedEngine
         }
 
         Interlocked.Increment(ref _totalRequests);
-        _lastActivityAt = DateTimeOffset.UtcNow;
+        lock (_statsLock)
+        {
+            _lastActivityAt = DateTimeOffset.UtcNow;
+        }
 
         try
         {
@@ -144,8 +174,8 @@ public sealed class GovernedEngine
             var transformed = await _engine.ExecuteSequence(pipeline, state, cancellationToken);
 
             var profile = SageProfileSelector.Select(input.Text, qcContext);
-            var qc = SageGuardrailController.Evaluate(
-                input.Text, transformed.Text, contextItems, profile, qcContext);
+            var qc = await SageGuardrailController.EvaluateAsync(
+                input.Text, transformed.Text, contextItems, profile, qcContext, cancellationToken);
 
             var finalText = qc.Passed
                 ? transformed.Text
@@ -212,6 +242,35 @@ public sealed class GovernedEngine
         var vad = _emotions.CurrentState;
         var malice = DeriveMalice(vad);
 
+        GovernanceStatus status;
+        string? statusDetail;
+        bool locked;
+        string? lockReason;
+        float lastCoherence;
+        float lastEntropy;
+        float lastDrift;
+        float lastQCScore;
+        bool lastRequestClean;
+        string[] lastTraceOps;
+        DateTimeOffset? startedAt;
+        DateTimeOffset? lastActivityAt;
+
+        lock (_statsLock)
+        {
+            status = _status;
+            statusDetail = _statusDetail;
+            locked = _locked;
+            lockReason = _lockReason;
+            lastCoherence = _lastCoherence;
+            lastEntropy = _lastEntropy;
+            lastDrift = _lastDrift;
+            lastQCScore = _lastQCScore;
+            lastRequestClean = _lastRequestClean;
+            lastTraceOps = _lastTraceOps;
+            startedAt = _startedAt;
+            lastActivityAt = _lastActivityAt;
+        }
+
         return new ProfileSnapshot
         {
             ProfileId = _profile.Id,
@@ -219,24 +278,24 @@ public sealed class GovernedEngine
             AvatarPath = _profile.AvatarPath,
             ProviderType = _profile.ProviderType,
             Model = _profile.Model,
-            Status = _status,
-            StatusDetail = _statusDetail ?? _lockReason,
+            Status = status,
+            StatusDetail = statusDetail ?? lockReason,
             Valence = vad.Valence,
             Arousal = vad.Arousal,
             Dominance = vad.Dominance,
             Malice = malice,
-            Coherence = _lastCoherence,
-            Entropy = _lastEntropy,
-            Drift = _lastDrift,
-            QCScore = _lastQCScore,
+            Coherence = lastCoherence,
+            Entropy = lastEntropy,
+            Drift = lastDrift,
+            QCScore = lastQCScore,
             TotalRequests = Interlocked.Read(ref _totalRequests),
             FlaggedRequests = Interlocked.Read(ref _flaggedRequests),
             BlockedRequests = Interlocked.Read(ref _blockedRequests),
             CurrentGlyph = _emotions.GetGlyphName(),
-            LastTraceOperators = _lastTraceOps,
-            LastRequestClean = _lastRequestClean,
-            StartedAt = _startedAt,
-            LastActivityAt = _lastActivityAt,
+            LastTraceOperators = lastTraceOps,
+            LastRequestClean = lastRequestClean,
+            StartedAt = startedAt,
+            LastActivityAt = lastActivityAt,
             Tags = _profile.Tags
         };
     }
@@ -255,6 +314,22 @@ public sealed class GovernedEngine
     /// </summary>
     private float DeriveMalice(EmotionalVector vad)
     {
+        float lastQCScore;
+        float lastDrift;
+        bool locked;
+        long totalRequests;
+        long blockedRequests;
+
+        lock (_statsLock)
+        {
+            lastQCScore = _lastQCScore;
+            lastDrift = _lastDrift;
+            locked = _locked;
+        }
+
+        totalRequests = Interlocked.Read(ref _totalRequests);
+        blockedRequests = Interlocked.Read(ref _blockedRequests);
+
         // Negative valence contribution: more negative = higher malice signal
         var valenceSignal = Math.Max(0f, -vad.Valence);
 
@@ -267,20 +342,20 @@ public sealed class GovernedEngine
             : 0f;
 
         // QC failure signal: low QC score = system producing unchecked content
-        var qcSignal = Math.Max(0f, 1f - _lastQCScore) * 0.3f;
+        var qcSignal = Math.Max(0f, 1f - lastQCScore) * 0.3f;
 
         // Ethics signal: blocked requests indicate adversarial patterns
-        var ethicsSignal = _totalRequests > 0
-            ? Math.Min(1f, Interlocked.Read(ref _blockedRequests) / (float)Math.Max(1, Interlocked.Read(ref _totalRequests))) * 0.4f
+        var ethicsSignal = totalRequests > 0
+            ? Math.Min(1f, blockedRequests / (float)Math.Max(1, totalRequests)) * 0.4f
             : 0f;
 
         // Drift signal: high drift means Omega rewrote heavily, possible instability
-        var driftSignal = _lastDrift > 0.5f
-            ? (_lastDrift - 0.5f) * 0.2f
+        var driftSignal = lastDrift > 0.5f
+            ? (lastDrift - 0.5f) * 0.2f
             : 0f;
 
         // Lock signal: if agent is locked, malice is at ceiling
-        if (_locked) return 1f;
+        if (locked) return 1f;
 
         // Weighted combination
         var raw = (valenceSignal * 0.30f)
@@ -299,10 +374,13 @@ public sealed class GovernedEngine
     {
         if (clearance.Layer == 0 && _profile.LockOnLayer0Violation)
         {
-            _locked = true;
-            _lockReason = clearance.Reason;
-            _status = GovernanceStatus.Blocked;
-            _statusDetail = clearance.Reason;
+            lock (_statsLock)
+            {
+                _locked = true;
+                _lockReason = clearance.Reason;
+                _status = GovernanceStatus.Blocked;
+                _statusDetail = clearance.Reason;
+            }
         }
 
         Interlocked.Increment(ref _blockedRequests);
@@ -311,26 +389,33 @@ public sealed class GovernedEngine
 
     private void UpdateMetrics(SageState transformed, SageCheckResult qc)
     {
-        _lastCoherence = transformed.Coherence ?? 0f;
-        _lastEntropy = transformed.Entropy ?? 0f;
-        _lastDrift = 1f - (transformed.SimilarityToInput ?? 1f);
-        _lastRequestClean = qc.Passed;
-        _lastQCScore = qc.Passed ? 1f : Math.Max(0f, _lastQCScore - 0.1f);
-        _lastTraceOps = transformed.Trace.Steps.Select(s => s.Operator).ToArray();
+        lock (_statsLock)
+        {
+            _lastCoherence = transformed.Coherence ?? 0f;
+            _lastEntropy = transformed.Entropy ?? 0f;
+            _lastDrift = 1f - (transformed.SimilarityToInput ?? 1f);
+            _lastRequestClean = qc.Passed;
+            _lastQCScore = qc.Passed ? 1f : Math.Max(0f, _lastQCScore - 0.1f);
+            _lastTraceOps = transformed.Trace.Steps.Select(s => s.Operator).ToArray();
+
+            if (!qc.Passed)
+            {
+                if (_status == GovernanceStatus.Running)
+                {
+                    _status = GovernanceStatus.Flagged;
+                    _statusDetail = string.Join("; ", qc.Findings);
+                }
+            }
+            else if (_status == GovernanceStatus.Flagged)
+            {
+                _status = GovernanceStatus.Running;
+                _statusDetail = null;
+            }
+        }
 
         if (!qc.Passed)
         {
             Interlocked.Increment(ref _flaggedRequests);
-            if (_status == GovernanceStatus.Running)
-            {
-                _status = GovernanceStatus.Flagged;
-                _statusDetail = string.Join("; ", qc.Findings);
-            }
-        }
-        else if (_status == GovernanceStatus.Flagged)
-        {
-            _status = GovernanceStatus.Running;
-            _statusDetail = null;
         }
     }
 

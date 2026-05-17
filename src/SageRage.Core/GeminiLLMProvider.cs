@@ -16,7 +16,7 @@ namespace SageRage.Infrastructure
     /// Use <see cref="PrimaryModel"/> / <see cref="FallbackModel"/> for cloud text.
     /// For Live Audio, see <see cref="GeminiLiveAudioProvider"/>.
     /// </summary>
-    public sealed class GeminiLLMProvider : ILLMProvider
+    public sealed class GeminiLLMProvider : ILLMProvider, IDisposable
     {
         // ── REST text models (generateContent) ──────────────────────────────
         public const string PrimaryModel  = "gemini-2.0-flash";
@@ -29,6 +29,7 @@ namespace SageRage.Infrastructure
         };
 
         private readonly HttpClient _httpClient;
+        private readonly bool _ownsHttpClient;
         private readonly string     _apiKey;
         private readonly string     _preferredModel;
 
@@ -48,6 +49,7 @@ namespace SageRage.Infrastructure
                     "Missing Gemini API key. Provide it directly or set GEMINI_API_KEY.");
 
             _apiKey         = resolvedKey;
+            _ownsHttpClient = httpClient is null;
             _httpClient     = httpClient ?? new HttpClient();
             _httpClient.Timeout = TimeSpan.FromSeconds(45);
             var resolved = string.IsNullOrWhiteSpace(model) ? PrimaryModel : model;
@@ -106,6 +108,8 @@ namespace SageRage.Infrastructure
                             JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json")
                     };
 
+                    request.Headers.Add("x-goog-api-key", _apiKey);
+
                     try
                     {
                         using var response = await _httpClient.SendAsync(
@@ -156,10 +160,10 @@ namespace SageRage.Infrastructure
                 "Gemini request failed after retries and fallback.", lastError);
         }
 
-        public Task<float[]> GetEmbeddingAsync(string text)
+        public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
             => Task.FromResult(Array.Empty<float>());
 
-        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens)
+        public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
         {
             var w = new float[tokens.Length][];
             for (var i = 0; i < tokens.Length; i++)
@@ -187,7 +191,7 @@ namespace SageRage.Infrastructure
         }
 
         private string BuildEndpoint(string model)
-            => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={_apiKey}";
+            => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
 
         private static bool IsTransient(HttpStatusCode s)
             => s is HttpStatusCode.TooManyRequests
@@ -197,5 +201,13 @@ namespace SageRage.Infrastructure
 
         private static bool IsModelIssue(HttpStatusCode s)
             => s is HttpStatusCode.NotFound or HttpStatusCode.BadRequest;
+
+        public void Dispose()
+        {
+            if (_ownsHttpClient)
+            {
+                _httpClient.Dispose();
+            }
+        }
     }
 }

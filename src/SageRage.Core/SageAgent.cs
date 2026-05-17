@@ -67,7 +67,7 @@ namespace SageRage
                 var transformed = await _engine.ExecuteSequence(pipeline, state);
 
                 var profile = SageProfileSelector.Select(input.Text, qcContext);
-                var qc = SageGuardrailController.Evaluate(input.Text, transformed.Text, contextItems, profile, qcContext);
+                var qc = await SageGuardrailController.EvaluateAsync(input.Text, transformed.Text, contextItems, profile, qcContext);
 
                 var finalText = qc.Passed
                     ? transformed.Text

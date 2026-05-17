@@ -40,9 +40,10 @@ namespace SageRage.Infrastructure
             string model, LiveConfig config, CancellationToken ct = default)
         {
             var ws  = new ClientWebSocket();
+            ws.Options.SetRequestHeader("x-goog-api-key", _apiKey);
             var uri = new Uri(
-                $"wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha" +
-                $".GenerativeService.BidiGenerateContent?key={_apiKey}");
+                "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha" +
+                ".GenerativeService.BidiGenerateContent");
 
             await ws.ConnectAsync(uri, ct);
 
@@ -150,7 +151,8 @@ namespace SageRage.Infrastructure
                 }
                 catch (OperationCanceledException) { terminate = true; }
                 catch (WebSocketException)         { terminate = true; }
-                catch { /* skip malformed frame */ }
+                catch (JsonException)               { /* skip malformed JSON frame */ }
+                catch (FormatException)            { /* skip malformed frame */ }
 
                 if (terminate) yield break;
                 if (json is null) continue;

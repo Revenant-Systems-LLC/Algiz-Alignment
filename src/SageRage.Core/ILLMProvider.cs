@@ -17,7 +17,7 @@ namespace SageRage.Infrastructure
             float temperature = 0.2f,
             CancellationToken cancellationToken = default);
 
-        Task<float[]> GetEmbeddingAsync(string text);
-        Task<float[][]> GetAttentionWeightsAsync(int[] tokens);
+        Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default);
+        Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default);
     }
 }
