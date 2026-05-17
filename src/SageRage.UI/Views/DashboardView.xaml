@@ -1,27 +1,201 @@
 <Page x:Class="SageRage.UI.Views.DashboardView"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:vm="clr-namespace:SageRage.UI.ViewModels"
       Background="Transparent"
       Title="Dashboard">
-  <Grid Margin="24">
-    <Grid.RowDefinitions>
-      <RowDefinition Height="Auto" />
-      <RowDefinition Height="*" />
-    </Grid.RowDefinitions>
+  <Page.DataContext>
+    <vm:DashboardViewModel />
+  </Page.DataContext>
 
-    <!-- Page heading -->
-    <TextBlock Grid.Row="0"
-               Text="DASHBOARD"
-               Style="{StaticResource Heading1}"
-               Margin="0,0,0,20" />
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <Grid Margin="24">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="20" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="16" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="16" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
 
-    <!-- Profile card grid placeholder -->
-    <Border Grid.Row="1"
-            Style="{StaticResource PanelCard}">
-      <TextBlock Text="No profiles configured. Create a profile to begin governing an AI system."
-                 Style="{StaticResource BodyText}"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center" />
-    </Border>
-  </Grid>
+      <!-- Page heading + VegVisir watermark -->
+      <Grid Grid.Row="0">
+        <Image Source="/Assets/Geometry/VegVisir_GOLD.png"
+               HorizontalAlignment="Right" VerticalAlignment="Center"
+               Height="120" Opacity="0.08" IsHitTestVisible="False" />
+        <TextBlock Text="DASHBOARD"
+                   Style="{StaticResource Heading1}" />
+      </Grid>
+
+      <!-- Row 1: Proxy Status + Pipeline Stats -->
+      <Grid Grid.Row="2">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="16" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Proxy Status Card -->
+        <Border Grid.Column="0" Style="{StaticResource PanelCard}">
+          <StackPanel>
+            <TextBlock Text="PROXY STATUS" Style="{StaticResource LabelText}" Margin="0,0,0,12" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+              <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Fill="{Binding ProxyStatusBrush}" />
+              <TextBlock Text="{Binding ProxyStatusText}"
+                         Style="{StaticResource Heading2}" FontSize="16" />
+            </StackPanel>
+            <TextBlock Style="{StaticResource BodyText}" Margin="0,0,0,4">
+              <Run Foreground="{StaticResource BrushMuted}">Upstream: </Run>
+              <Run Text="{Binding ProxyUpstream}" />
+            </TextBlock>
+            <TextBlock Style="{StaticResource BodyText}" Margin="0,0,0,4">
+              <Run Foreground="{StaticResource BrushMuted}">Port: </Run>
+              <Run Text="{Binding ProxyPort}" />
+            </TextBlock>
+            <TextBlock Style="{StaticResource BodyText}">
+              <Run Foreground="{StaticResource BrushMuted}">Uptime: </Run>
+              <Run Text="{Binding ProxyUptime}" />
+            </TextBlock>
+          </StackPanel>
+        </Border>
+
+        <!-- Pipeline Stats Card -->
+        <Border Grid.Column="2" Style="{StaticResource PanelCard}">
+          <StackPanel>
+            <TextBlock Text="PIPELINE STATS" Style="{StaticResource LabelText}" Margin="0,0,0,12" />
+            <Grid Margin="0,0,0,10">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="{Binding TotalRequests}"
+                           Style="{StaticResource Heading2}" FontSize="32"
+                           Foreground="{StaticResource BrushGoldBright}" />
+                <TextBlock Text="TOTAL REQUESTS" Style="{StaticResource LabelText}" />
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Text="{Binding FlaggedRequests}"
+                           Style="{StaticResource Heading2}" FontSize="32"
+                           Foreground="{StaticResource BrushRageRed}" />
+                <TextBlock Text="FLAGGED" Style="{StaticResource LabelText}" />
+              </StackPanel>
+            </Grid>
+            <TextBlock Style="{StaticResource BodyText}">
+              <Run Foreground="{StaticResource BrushMuted}">Flag Rate: </Run>
+              <Run Text="{Binding FlagRate}" />
+            </TextBlock>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Row 2: VAM State + Active Persona -->
+      <Grid Grid.Row="4">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="16" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- VAM State Card -->
+        <Border Grid.Column="0" Style="{StaticResource PanelCard}">
+          <StackPanel>
+            <TextBlock Text="EMOTIONAL STATE  ·  VAM" Style="{StaticResource LabelText}" Margin="0,0,0,12" />
+
+            <!-- Malice indicator -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+              <TextBlock Text="MALICE"
+                         Style="{StaticResource LabelText}"
+                         VerticalAlignment="Center"
+                         Width="80" />
+              <Border Height="12" CornerRadius="6" Background="#22FFFFFF"
+                      Width="200" VerticalAlignment="Center">
+                <Border x:Name="MaliceBar" HorizontalAlignment="Left" CornerRadius="6"
+                        Background="{Binding VamGlyphBrush}"
+                        Width="{Binding Malice, Converter={StaticResource PctToWidth}}"
+                        MinWidth="4" MaxWidth="200" />
+              </Border>
+              <TextBlock Text="{Binding MaliceText}"
+                         Style="{StaticResource LabelText}"
+                         Foreground="{Binding VamGlyphBrush}"
+                         Margin="12,0,0,0"
+                         VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Valence -->
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+              <TextBlock Text="VALENCE" Style="{StaticResource LabelText}" VerticalAlignment="Center" Width="80" />
+              <Border Height="8" CornerRadius="4" Background="#22FFFFFF" Width="200" VerticalAlignment="Center">
+                <Border HorizontalAlignment="Left" CornerRadius="4"
+                        Background="{StaticResource BrushGold}"
+                        MinWidth="4" MaxWidth="200" />
+              </Border>
+            </StackPanel>
+
+            <!-- Activation -->
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="ACTIVATION" Style="{StaticResource LabelText}" VerticalAlignment="Center" Width="80" />
+              <Border Height="8" CornerRadius="4" Background="#22FFFFFF" Width="200" VerticalAlignment="Center">
+                <Border HorizontalAlignment="Left" CornerRadius="4"
+                        Background="{StaticResource BrushGold}"
+                        MinWidth="4" MaxWidth="200" />
+              </Border>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Active Persona Card -->
+        <Border Grid.Column="2" Style="{StaticResource PanelCard}">
+          <StackPanel>
+            <TextBlock Text="ACTIVE PERSONA" Style="{StaticResource LabelText}" Margin="0,0,0,12" />
+            <TextBlock Text="{Binding ActivePersona}"
+                       Style="{StaticResource Heading2}"
+                       FontSize="28"
+                       Margin="0,0,0,8" />
+            <TextBlock Text="No persona loaded. Configure a profile to assign a persona."
+                       Style="{StaticResource BodyText}"
+                       Opacity="0.6" />
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Row 3: Secrets Status -->
+      <Border Grid.Row="6" Style="{StaticResource PanelCard}">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+
+          <StackPanel Grid.Column="0" Margin="0,0,24,0">
+            <TextBlock Text="SECRETS" Style="{StaticResource LabelText}" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal">
+              <Ellipse Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Fill="{Binding SecretsStatusBrush}" />
+              <TextBlock Text="{Binding SecretsStatusText}"
+                         Style="{StaticResource Heading2}"
+                         FontSize="14"
+                         Foreground="{Binding SecretsStatusBrush}" />
+            </StackPanel>
+          </StackPanel>
+
+          <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                     Style="{StaticResource BodyText}" Opacity="0.7">
+            <Run Foreground="{StaticResource BrushMuted}">Profile: </Run>
+            <Run Text="{Binding SecretsProfile}" />
+          </TextBlock>
+
+          <Button Grid.Column="2" Content="RUN SETUP"
+                  Style="{StaticResource NavTab}"
+                  VerticalAlignment="Center"
+                  Padding="16,10" />
+        </Grid>
+      </Border>
+
+    </Grid>
+  </ScrollViewer>
 </Page>
