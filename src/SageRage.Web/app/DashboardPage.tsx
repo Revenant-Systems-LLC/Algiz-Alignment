@@ -1,13 +1,16 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
-const DashboardPage = dynamic(() => import("./DashboardPage").then(mod => ({ default: mod.DashboardPage })), {
-  ssr: false,
-  loading: () => <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "#10141A" }}>Loading...</div>,
-});
-
-export default DashboardPage;
+import { useState, useEffect } from "react";
+import { Typography, Row, Col, Card, Alert, Spin } from "antd";
+import {
+  SafetyOutlined,
+  WarningOutlined,
+  StopOutlined,
+  CheckCircleOutlined,
+} from "@ant-design/icons";
+import AppShell from "@/components/AppShell";
+import ProfileCard from "@/components/ProfileCard";
+import type { DashboardSummary } from "@/lib/types";
 
 const { Title, Text } = Typography;
 
@@ -62,7 +65,7 @@ function SummaryTile({
   );
 }
 
-export default function DashboardPage() {
+export function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
 

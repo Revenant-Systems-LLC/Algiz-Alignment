@@ -8,4 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SageRage.Core\SageRage.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
+  </ItemGroup>
 </Project>

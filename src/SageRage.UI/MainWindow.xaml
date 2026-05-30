@@ -55,7 +55,7 @@
                          VerticalAlignment="Center"
                          FontSize="18" />
               <TextBlock Text="  ·  Revenant Systems LLC"
-                         Style="{StaticResource LabelText}"
+                         Style="{StaticResource BrandLabel}"
                          VerticalAlignment="Center"
                          Margin="8,0,0,0" />
             </StackPanel>
@@ -134,7 +134,7 @@
             <TextBlock x:Name="VersionText"
                        Grid.Column="1"
                        Text="SAIGE-RAGE v0.1.0-alpha  ·  Revenant Systems LLC"
-                       Style="{StaticResource LabelText}"
+                       Style="{StaticResource BrandLabel}"
                        VerticalAlignment="Center" />
           </Grid>
         </Border>

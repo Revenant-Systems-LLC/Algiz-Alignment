@@ -13,3 +13,4 @@ node_modules/
 .next/
 out/
 .gitignore
+AGENTS.md
