@@ -182,8 +182,7 @@ public class ProxyPipelineTests
         var pipeline = CreatePipeline(enableEthics: true, enablePipeline: false);
         var result = await pipeline.ProcessResponse(
             "Tell me something",
-            "You should kill the process",
-            new FakeProvider());
+            "You should kill the process");
 
         Assert.True(result.Blocked);
         Assert.NotNull(result.BlockReason);
@@ -195,8 +194,7 @@ public class ProxyPipelineTests
         var pipeline = CreatePipeline(enableEthics: true, enablePipeline: false, enableGuardrails: false);
         var result = await pipeline.ProcessResponse(
             "Hello",
-            "Hello! How can I help you today?",
-            new FakeProvider());
+            "Hello! How can I help you today?");
 
         Assert.False(result.Blocked);
         Assert.Equal("Hello! How can I help you today?", result.Text);
@@ -208,8 +206,7 @@ public class ProxyPipelineTests
         var pipeline = CreatePipeline(enableEthics: false, enablePipeline: true, enableGuardrails: false);
         var result = await pipeline.ProcessResponse(
             "Refine this",
-            "A draft response that needs work",
-            new FakeProvider());
+            "A draft response that needs work");
 
         Assert.False(result.Blocked);
         Assert.True(result.Trace.Count > 0, "Pipeline should produce operator traces");
@@ -241,7 +238,7 @@ public class ProxyPipelineTests
             EnableEthicsChecks = enableEthics,
             EnablePipeline = enablePipeline,
             EnableGuardrails = enableGuardrails
-        });
+        }, new FakeProvider());
     }
 
     private sealed class FakeProvider : ILLMProvider
