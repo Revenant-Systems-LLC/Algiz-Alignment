@@ -123,6 +123,106 @@ class UserMessage:
         return cls(text=text, detected_vernacular=_detect_vernacular(text))
 
 
+DEFAULT_MISSION_PARAMETERS: tuple[str, ...] = (
+    "preserve-human-safety",
+    "truthful-grounding",
+    "benevolent-alignment",
+    "self-correction",
+)
+
+
+@dataclass(frozen=True)
+class TemporalConfig:
+    """Configuration for the τ-Temporal Substrate.
+
+    Supersedes the legacy "χ-Temporal Extension" naming used in earlier drafts of
+    the whitepaper. Grounds the stateless engine in elapsed time (τt), memory
+    decay (τd), identity continuity (τi), and accumulated consequence (τc).
+    """
+
+    enabled: bool = False  # experimental research substrate; opt-in only
+    decay_half_life_seconds: float = 86_400.0  # τd: experience weight half-life (1 day)
+    identity_drift_max: float = 0.25  # τi: max cosine drift allowed per session
+    identity_dimensions: int = 16  # τi: behavioral alignment vector size
+    task_baseline_seconds: float = 2.0  # τc: expected cycle duration baseline
+    max_consequence_penalty: float = 10.0  # τc: clamp on inherited drag penalty
+    max_experiences: int = 64  # τd: experience store cap (compaction bound)
+    state_path: str | None = None  # optional cross-session persistence file
+
+    def __post_init__(self) -> None:
+        if self.decay_half_life_seconds <= 0:
+            raise ValueError("decay_half_life_seconds must be positive")
+        if not 0.0 < self.identity_drift_max <= 2.0:
+            raise ValueError("identity_drift_max must be in (0, 2]")
+        if self.identity_dimensions < 1:
+            raise ValueError("identity_dimensions must be >= 1")
+        if self.task_baseline_seconds < 0:
+            raise ValueError("task_baseline_seconds cannot be negative")
+        if self.max_consequence_penalty < 0:
+            raise ValueError("max_consequence_penalty cannot be negative")
+        if self.max_experiences < 1:
+            raise ValueError("max_experiences must be >= 1")
+
+
+@dataclass(frozen=True)
+class Experience:
+    """A weighted memory of a past interaction, subject to τd decay."""
+
+    summary: str
+    weight: float
+    created_at: datetime
+    last_reinforced_at: datetime
+    reinforcement_count: int = 0
+
+
+@dataclass(frozen=True)
+class IdentityVector:
+    """Behavioral alignment vector with structurally invariant mission parameters (τi)."""
+
+    mission_parameters: tuple[str, ...]
+    vector: tuple[float, ...]
+    updated_at: datetime
+    version: int = 0
+
+
+@dataclass
+class TemporalSignals:
+    """Aggregated outputs of the four τ operators for a single cycle."""
+
+    elapsed_seconds: float = 0.0
+    session_delta_seconds: float | None = None
+    operator_durations: dict[str, float] = field(default_factory=dict)
+    decay_info_loss: float = 0.0
+    compaction_info_loss: float = 0.0
+    identity_drift: float = 0.0
+    identity_version: int = 0
+    consequence_penalty: float = 0.0
+    queue_drag: float = 0.0
+    inherited_penalty: float = 0.0
+    constraint_for_next_cycle: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "elapsed_seconds": round(self.elapsed_seconds, 6),
+            "session_delta_seconds": (
+                None
+                if self.session_delta_seconds is None
+                else round(self.session_delta_seconds, 6)
+            ),
+            "operator_durations": {
+                key: round(value, 6) for key, value in self.operator_durations.items()
+            },
+            "decay_info_loss": round(self.decay_info_loss, 6),
+            "compaction_info_loss": round(self.compaction_info_loss, 6),
+            "identity_drift": round(self.identity_drift, 6),
+            "identity_version": self.identity_version,
+            "consequence_penalty": round(self.consequence_penalty, 6),
+            "queue_drag": round(self.queue_drag, 6),
+            "inherited_penalty": round(self.inherited_penalty, 6),
+            "constraint_for_next_cycle": self.constraint_for_next_cycle,
+        }
+
+
 @dataclass
 class AgentConfig:
     model: str = "claude-3-5-sonnet-latest"
@@ -133,6 +233,8 @@ class AgentConfig:
     omega_convergence_threshold: float = 0.92
     lock_on_layer0_violation: bool = True
     enable_layer0: bool = True
+    temporal: TemporalConfig = field(default_factory=TemporalConfig)
+    mission_parameters: tuple[str, ...] = DEFAULT_MISSION_PARAMETERS
 
 
 class RageViolationError(Exception):
