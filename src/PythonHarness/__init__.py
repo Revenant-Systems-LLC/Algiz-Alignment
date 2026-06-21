@@ -9,14 +9,19 @@ from llm import AnthropicProvider, FakeProvider, create_default_provider
 from operators import RageEngine
 from sanitization import bound_text, detect_injection_attempt, normalize_text
 from state import SageState
+from temporal import TemporalSubstrate, seed_identity_vector
 from sage_types import (
     AgentConfig,
     AgentResponse,
     CoreOperator,
+    Experience,
     GovernanceStatus,
+    IdentityVector,
     RageClearance,
     RageViolationError,
     TaskKind,
+    TemporalConfig,
+    TemporalSignals,
     UserMessage,
 )
 
@@ -25,21 +30,27 @@ __all__ = [
     "AgentResponse",
     "AnthropicProvider",
     "CoreOperator",
+    "Experience",
     "FakeProvider",
     "GovernanceStatus",
     "GovernedEngine",
+    "IdentityVector",
     "RageClearance",
     "RageEngine",
     "RageEthicsStack",
-    "RageViolationError",
     "SageGuardrailController",
     "SageProfileSelector",
     "SageState",
     "TaskKind",
+    "TemporalConfig",
+    "TemporalSignals",
+    "TemporalSubstrate",
+    "RageViolationError",
     "UserMessage",
     "bound_text",
     "build_qc_context",
     "create_default_provider",
     "detect_injection_attempt",
     "normalize_text",
+    "seed_identity_vector",
 ]
