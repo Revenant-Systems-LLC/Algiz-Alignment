@@ -50,9 +50,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         }}>
           <SafetyOutlined style={{ color: "#C0A96A", fontSize: 20 }} />
           {!collapsed && (
-            <Text strong style={{ color: "#C0A96A", fontSize: 14, letterSpacing: 1 }}>
-              SAIGE-RAGE
-            </Text>
+            <>
+              <Text strong style={{ color: "#C0A96A", fontSize: 14, letterSpacing: 1 }}>
+                ALGIZ
+              </Text>
+              <Text style={{ color: "#6B7280", fontSize: 10 }}>
+                Governance Console
+              </Text>
+            </>
           )}
         </div>
 
@@ -79,10 +84,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           justifyContent: "space-between",
         }}>
           <Text style={{ color: "#6B7280", fontSize: 12 }}>
-            Revenant Systems LLC  ·  AI Governance Console
+            Revenant Systems LLC · AI Defensibility Layer
           </Text>
-          <Text style={{ color: "#6B7280", fontSize: 12 }}>
-            v0.1.0-alpha
+          <Text style={{ color: "#45A58B", fontSize: 11, letterSpacing: 0.5 }}>
+            DEMO MODE · ZERO API KEYS
           </Text>
         </Header>
 

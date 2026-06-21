@@ -12,8 +12,8 @@ const ibmMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SAIGE-RAGE — Revenant Systems",
-  description: "AI Governance Console",
+  title: "Algiz — AI Defensibility Console",
+  description: "Enterprise AI governance and audit trail",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,9 +1,9 @@
 "use client";
 
 import { Card, Progress, Typography, Tooltip, Tag } from "antd";
-import { UserOutlined } from "@ant-design/icons";
 import type { ProfileSnapshot } from "@/lib/types";
 import StatusBadge from "./StatusBadge";
+import VamRadar from "./VamRadar";
 
 const { Text, Title } = Typography;
 
@@ -51,14 +51,7 @@ export default function ProfileCard({ snapshot }: { snapshot: ProfileSnapshot })
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 6,
-            background: "#1C2330",
-            border: "1px solid #2A3344",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <UserOutlined style={{ color: "#C0A96A", fontSize: 16 }} />
-          </div>
+          <VamRadar snapshot={snapshot} />
           <div>
             <Title level={5} style={{ margin: 0, color: "#E4E7EC", fontSize: 13 }}>
               {snapshot.displayName}

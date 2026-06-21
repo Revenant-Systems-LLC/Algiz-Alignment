@@ -1,4 +1,10 @@
-import type { DashboardSummary, ProfileSnapshot } from "./types";
+import type {
+  AuditEvent,
+  AuditSummary,
+  DashboardSummary,
+  ProfileSnapshot,
+  ScenarioCompareResult,
+} from "./types";
 
 const BASE = "/api";
 
@@ -11,6 +17,24 @@ export async function getDashboard(): Promise<DashboardSummary> {
 export async function getProfile(id: string): Promise<ProfileSnapshot> {
   const res = await fetch(`${BASE}/profiles/${id}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Profile fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getAuditRecent(limit = 100): Promise<AuditEvent[]> {
+  const res = await fetch(`${BASE}/audit/recent?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Audit fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getAuditSummary(): Promise<AuditSummary> {
+  const res = await fetch(`${BASE}/audit/summary`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Audit summary failed: ${res.status}`);
+  return res.json();
+}
+
+export async function runScenarioCompare(scenarioId: string): Promise<ScenarioCompareResult> {
+  const res = await fetch(`${BASE}/demo/scenarios/${scenarioId}/compare`, { method: "POST" });
+  if (!res.ok) throw new Error(`Scenario compare failed: ${res.status}`);
   return res.json();
 }
 

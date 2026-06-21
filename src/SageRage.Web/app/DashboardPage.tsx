@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Typography, Row, Col, Card, Alert, Spin } from "antd";
 import {
   SafetyOutlined,
@@ -10,28 +10,13 @@ import {
 } from "@ant-design/icons";
 import AppShell from "@/components/AppShell";
 import ProfileCard from "@/components/ProfileCard";
-import type { DashboardSummary } from "@/lib/types";
+import DefensibilityBanner from "@/components/DefensibilityBanner";
+import ScenarioComparePanel from "@/components/ScenarioComparePanel";
+import AuditFeed from "@/components/AuditFeed";
+import { getDashboard, getAuditRecent } from "@/lib/api";
+import type { AuditEvent, DashboardSummary } from "@/lib/types";
 
 const { Title, Text } = Typography;
-
-async function fetchDashboard(): Promise<DashboardSummary | null> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-    const res = await fetch("http://localhost:5000/api/dashboard", {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
-}
 
 function SummaryTile({
   icon, label, value, color,
@@ -67,14 +52,29 @@ function SummaryTile({
 
 export function DashboardPage() {
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboard().then(result => {
-      setData(result);
+  const refresh = useCallback(async () => {
+    try {
+      const [dash, audit] = await Promise.all([
+        getDashboard(),
+        getAuditRecent(12),
+      ]);
+      setData(dash);
+      setAuditEvents(audit);
+    } catch {
+      setData(null);
+    } finally {
       setLoading(false);
-    });
+    }
   }, []);
+
+  useEffect(() => {
+    refresh();
+    const id = setInterval(refresh, 3000);
+    return () => clearInterval(id);
+  }, [refresh]);
 
   if (loading) {
     return (
@@ -88,12 +88,12 @@ export function DashboardPage() {
 
   return (
     <AppShell>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <Title level={3} style={{ color: "#E4E7EC", margin: 0, fontWeight: 600 }}>
-          Dashboard
+          AI Governance Console
         </Title>
         <Text style={{ color: "#6B7280" }}>
-          Governance overview — all monitored AI systems
+          Enterprise defensibility layer — live operator traces for every governed system
         </Text>
       </div>
 
@@ -101,80 +101,64 @@ export function DashboardPage() {
         <Alert
           type="warning"
           message="API Offline"
-          description="SageRage.Api is not reachable on localhost:5000. Start the API server to see live governance data."
+          description="Start the demo: .\scripts\launch-demo.ps1"
           showIcon
           style={{ marginBottom: 24, background: "#F0B44A11", border: "1px solid #F0B44A44" }}
         />
       ) : null}
 
-      {/* Summary tiles */}
+      {data?.audit && <DefensibilityBanner audit={data.audit} />}
+
+      <ScenarioComparePanel />
+
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
-          <SummaryTile
-            icon={<SafetyOutlined />}
-            label="TOTAL PROFILES"
-            value={data?.totalProfiles ?? 0}
-            color="#C0A96A"
-          />
+          <SummaryTile icon={<SafetyOutlined />} label="TOTAL PROFILES" value={data?.totalProfiles ?? 0} color="#C0A96A" />
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <SummaryTile
-            icon={<CheckCircleOutlined />}
-            label="ACTIVE"
-            value={data?.activeProfiles ?? 0}
-            color="#45A58B"
-          />
+          <SummaryTile icon={<CheckCircleOutlined />} label="ACTIVE" value={data?.activeProfiles ?? 0} color="#45A58B" />
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <SummaryTile
-            icon={<WarningOutlined />}
-            label="FLAGGED"
-            value={data?.flaggedProfiles ?? 0}
-            color="#F0B44A"
-          />
+          <SummaryTile icon={<WarningOutlined />} label="FLAGGED" value={data?.flaggedProfiles ?? 0} color="#F0B44A" />
         </Col>
         <Col xs={24} sm={12} lg={6}>
-          <SummaryTile
-            icon={<StopOutlined />}
-            label="BLOCKED"
-            value={data?.blockedProfiles ?? 0}
-            color="#E15B64"
-          />
+          <SummaryTile icon={<StopOutlined />} label="BLOCKED" value={data?.blockedProfiles ?? 0} color="#E15B64" />
         </Col>
       </Row>
 
-      {/* Profile cards grid */}
-      {data && data.snapshots.length > 0 ? (
-        <>
-          <div style={{ marginBottom: 16 }}>
-            <Text style={{ color: "#6B7280", fontSize: 11, letterSpacing: 1 }}>
-              GOVERNED SYSTEMS  ·  {data.snapshots.length}
-            </Text>
-          </div>
-          <Row gutter={[16, 16]}>
-            {data.snapshots.map(snapshot => (
-              <Col key={snapshot.profileId} xs={24} sm={24} md={12} xl={8} xxl={6}>
-                <ProfileCard snapshot={snapshot} />
-              </Col>
-            ))}
-          </Row>
-        </>
-      ) : (
-        <Card
-          style={{ background: "#161B22", border: "1px solid #2A3344", textAlign: "center" }}
-          styles={{ body: { padding: 48 } }}
-        >
-          <SafetyOutlined style={{ fontSize: 40, color: "#2A3344", marginBottom: 16 }} />
-          <div>
-            <Text style={{ color: "#6B7280", display: "block", marginBottom: 8 }}>
-              No governed systems configured.
-            </Text>
-            <Text style={{ color: "#6B7280", fontSize: 11 }}>
-              Add a GovernanceProfile via the API or CLI to begin monitoring.
-            </Text>
-          </div>
-        </Card>
-      )}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={16}>
+          {data && data.snapshots.length > 0 ? (
+            <>
+              <Text style={{ color: "#6B7280", fontSize: 11, letterSpacing: 1, display: "block", marginBottom: 12 }}>
+                GOVERNED SYSTEMS · {data.snapshots.length}
+              </Text>
+              <Row gutter={[16, 16]}>
+                {data.snapshots.map(snapshot => (
+                  <Col key={snapshot.profileId} xs={24} sm={24} md={12} xl={8}>
+                    <ProfileCard snapshot={snapshot} />
+                  </Col>
+                ))}
+              </Row>
+            </>
+          ) : (
+            <Card style={{ background: "#161B22", border: "1px solid #2A3344", textAlign: "center" }} styles={{ body: { padding: 48 } }}>
+              <SafetyOutlined style={{ fontSize: 40, color: "#2A3344", marginBottom: 16 }} />
+              <Text style={{ color: "#6B7280" }}>No governed systems — start the API in demo mode.</Text>
+            </Card>
+          )}
+        </Col>
+        <Col xs={24} xl={8}>
+          <Card
+            title={<Text style={{ color: "#C0A96A", fontSize: 11, letterSpacing: 1 }}>DEFENSIBILITY LOG</Text>}
+            size="small"
+            style={{ background: "#161B22", border: "1px solid #2A3344", borderRadius: 8 }}
+            styles={{ header: { borderBottom: "1px solid #2A3344" }, body: { maxHeight: 520, overflowY: "auto" } }}
+          >
+            <AuditFeed events={auditEvents} compact />
+          </Card>
+        </Col>
+      </Row>
     </AppShell>
   );
 }
