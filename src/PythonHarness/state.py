@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sage_types import ContextItem, EmotionalVector, EthicalFlags, OperatorTrace
+from sage_types import ContextItem, EmotionalVector, EthicalFlags, OperatorTrace, utc_now
 
 
 @dataclass
@@ -20,8 +20,6 @@ class SageState:
     trace: list[OperatorTrace] = field(default_factory=list)
 
     def log(self, operator: str, note: str) -> None:
-        from sage_types import utc_now
-
         safe_operator = operator[:32]
         safe_note = note[:500]
         self.trace.append(
