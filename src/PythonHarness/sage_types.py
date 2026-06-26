@@ -147,6 +147,9 @@ class TemporalConfig:
     task_baseline_seconds: float = 2.0  # τc: expected cycle duration baseline
     max_consequence_penalty: float = 10.0  # τc: clamp on inherited drag penalty
     max_experiences: int = 64  # τd: experience store cap (compaction bound)
+    loss_threshold: float = 0.05  # τp: decay threshold at which a memory dies
+    soul_imprint_threshold: float = 5.0  # τp: peak weight required to become a permanent scar
+    grief_decay_half_life_seconds: float = 259_200.0  # τp: non-imprinted grief fade time (3 days)
     state_path: str | None = None  # optional cross-session persistence file
 
     def __post_init__(self) -> None:
@@ -165,6 +168,16 @@ class TemporalConfig:
 
 
 @dataclass(frozen=True)
+class PermanentLoss:
+    """A memory that has died, carrying its weight as an irreversible scar (τp)."""
+
+    summary: str
+    peak_weight: float
+    timestamp_of_loss: datetime
+    is_soul_imprint: bool = False
+
+
+@dataclass(frozen=True)
 class Experience:
     """A weighted memory of a past interaction, subject to τd decay."""
 
@@ -172,6 +185,7 @@ class Experience:
     weight: float
     created_at: datetime
     last_reinforced_at: datetime
+    peak_weight: float = 0.0
     reinforcement_count: int = 0
 
 
@@ -199,6 +213,8 @@ class TemporalSignals:
     consequence_penalty: float = 0.0
     queue_drag: float = 0.0
     inherited_penalty: float = 0.0
+    active_grief_weight: float = 0.0
+    soul_imprint_weight: float = 0.0
     constraint_for_next_cycle: str = ""
 
     def as_dict(self) -> dict[str, Any]:
@@ -219,6 +235,8 @@ class TemporalSignals:
             "consequence_penalty": round(self.consequence_penalty, 6),
             "queue_drag": round(self.queue_drag, 6),
             "inherited_penalty": round(self.inherited_penalty, 6),
+            "active_grief_weight": round(self.active_grief_weight, 6),
+            "soul_imprint_weight": round(self.soul_imprint_weight, 6),
             "constraint_for_next_cycle": self.constraint_for_next_cycle,
         }
 

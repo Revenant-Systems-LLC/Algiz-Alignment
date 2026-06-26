@@ -23,6 +23,7 @@ from typing import Callable, Sequence
 from sage_types import (
     Experience,
     IdentityVector,
+    PermanentLoss,
     TemporalConfig,
     TemporalSignals,
     utc_now,
@@ -88,6 +89,7 @@ class TemporalSubstrate:
         self.config = config or TemporalConfig()
         self._clock: MonotonicClock = clock or time.monotonic
         self._wall_clock: WallClock = wall_clock or utc_now
+        self._grief_ledger: list[PermanentLoss] = []
 
     # -- τt: Chrono-Indexing --------------------------------------------------
     def now_monotonic(self) -> float:
@@ -130,10 +132,19 @@ class TemporalSubstrate:
         reference = now or self._wall_clock()
         total_before = sum(max(0.0, item.weight) for item in experiences)
         decayed: list[Experience] = []
+        dead: list[Experience] = []
         for experience in experiences:
             elapsed = (reference - experience.last_reinforced_at).total_seconds()
             factor = self.decay_factor(max(0.0, elapsed))
-            decayed.append(replace(experience, weight=experience.weight * factor))
+            new_weight = experience.weight * factor
+            if new_weight < self.config.loss_threshold:
+                dead.append(experience)
+            else:
+                decayed.append(replace(experience, weight=new_weight))
+                
+        # Handle dead experiences via τp
+        self.chrono_permanence(dead, now=reference)
+        
         total_after = sum(max(0.0, item.weight) for item in decayed)
         info_loss = 0.0 if total_before <= 0 else (total_before - total_after) / total_before
         return decayed, max(0.0, min(1.0, info_loss))
@@ -155,10 +166,12 @@ class TemporalSubstrate:
         for experience in experiences:
             if experience.summary == summary:
                 found = True
+                new_weight = experience.weight + weight
                 updated.append(
                     replace(
                         experience,
-                        weight=experience.weight + weight,
+                        weight=new_weight,
+                        peak_weight=max(experience.peak_weight, new_weight),
                         last_reinforced_at=reference,
                         reinforcement_count=experience.reinforcement_count + 1,
                     )
@@ -170,6 +183,7 @@ class TemporalSubstrate:
                 Experience(
                     summary=summary,
                     weight=weight,
+                    peak_weight=weight,
                     created_at=reference,
                     last_reinforced_at=reference,
                     reinforcement_count=0,
@@ -191,9 +205,50 @@ class TemporalSubstrate:
         total_before = sum(max(0.0, item.weight) for item in experiences)
         ranked = sorted(experiences, key=lambda item: item.weight, reverse=True)
         kept = ranked[:cap]
+        dropped = ranked[cap:]
+        
+        # Handle dropped experiences via τp
+        self.chrono_permanence(dropped, now=self._wall_clock())
+        
         total_after = sum(max(0.0, item.weight) for item in kept)
         loss = 0.0 if total_before <= 0 else (total_before - total_after) / total_before
         return kept, max(0.0, min(1.0, loss))
+
+    # -- τp: Chrono-Permanence ------------------------------------------------
+    def chrono_permanence(
+        self,
+        dead_experiences: Sequence[Experience],
+        *,
+        now: datetime | None = None,
+    ) -> tuple[float, float]:
+        """τp: convert dead experiences into irreversible grief or soul imprints.
+        
+        Returns (active_grief_weight, soul_imprint_weight).
+        """
+        reference = now or self._wall_clock()
+        
+        for exp in dead_experiences:
+            is_imprint = exp.peak_weight >= self.config.soul_imprint_threshold
+            loss = PermanentLoss(
+                summary=exp.summary,
+                peak_weight=exp.peak_weight,
+                timestamp_of_loss=reference,
+                is_soul_imprint=is_imprint,
+            )
+            self._grief_ledger.append(loss)
+            
+        active_grief = 0.0
+        soul_imprint = 0.0
+        
+        for loss in self._grief_ledger:
+            if loss.is_soul_imprint:
+                soul_imprint += loss.peak_weight
+            else:
+                elapsed = (reference - loss.timestamp_of_loss).total_seconds()
+                factor = 0.5 ** (max(0.0, elapsed) / self.config.grief_decay_half_life_seconds)
+                active_grief += loss.peak_weight * factor
+                
+        return active_grief, soul_imprint
 
     # -- τi: Chrono-Identity --------------------------------------------------
     def chrono_identity(
