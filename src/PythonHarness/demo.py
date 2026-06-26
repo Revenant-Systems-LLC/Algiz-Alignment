@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from pipeline import GovernedEngine, RageEngine, create_default_provider
 from sage_types import AgentConfig, TemporalConfig
 
-dotenv_path = r"B:\secrets\SageRage.env"
+dotenv_path = r"B:\secrets\SageRage.env"  # rws-suppress: RWS-PY-011 intentional DPAPI secrets drive — guarded with os.path.exists, falls back to load_dotenv()
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
 else:
