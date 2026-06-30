@@ -127,24 +127,64 @@ public sealed class RageEngine
 
     private async Task<SageState> ExecuteChi(SageState state, CancellationToken cancellationToken)
     {
-        var candidates = new List<(string text, float entropy)>();
+        // Sample independently at several temperatures and select the candidate
+        // the other samples most agree with (self-consistency). A model confident
+        // in its answer tends to reproduce similar content across resamples,
+        // while a hallucinated or unstable answer tends to be an outlier relative
+        // to its own resamples — a real signal. The previous implementation
+        // measured the internal variance of a single candidate's own embedding
+        // vector and called it "entropy", and defined "coherence" as 1/(1+entropy)
+        // — a number with no relationship to model confidence, and mathematically
+        // guaranteed to agree with "entropy" by construction, making the
+        // documented two-factor selection ("lowest entropy AND highest
+        // coherence") tautological rather than a real check.
+        var samples = new List<string>();
         foreach (var temperature in new[] { 0.1f, 0.3f, 0.5f })
         {
             var candidate = await _llm.GenerateAsync(
                 $"Rewrite for precision and coherence while preserving meaning:\n\n{state.Text}",
                 temperature,
                 cancellationToken);
-
-            var entropy = await _metrics.CalculatePerplexity(candidate);
-            candidates.Add((candidate, entropy));
+            samples.Add(candidate);
         }
 
-        var best = candidates.OrderBy(x => x.entropy).First();
-        state.Text = best.text;
-        state.Entropy = best.entropy;
-        state.Coherence = 1f / (1f + best.entropy);
-        state.Trace.Steps.Add(new OperatorTrace("χ", DateTime.UtcNow, $"Selected lowest entropy candidate: {best.entropy:F3}"));
+        var (bestIndex, bestAgreement) = await SelectConsensus(samples, cancellationToken);
+        state.Text = samples[bestIndex];
+        state.Coherence = bestAgreement;
+        state.Entropy = 1f - bestAgreement;
+        state.Trace.Steps.Add(new OperatorTrace("χ", DateTime.UtcNow,
+            $"Selected consensus candidate (agreement={bestAgreement:F3}) across {samples.Count} samples"));
         return state;
+    }
+
+    /// <summary>
+    /// Pick the sample the others most agree with (mean pairwise similarity).
+    /// Returns (index, agreement) for the winning sample.
+    /// </summary>
+    private async Task<(int index, float agreement)> SelectConsensus(IReadOnlyList<string> samples, CancellationToken cancellationToken)
+    {
+        if (samples.Count <= 1)
+            return (0, 1f);
+
+        var agreement = new float[samples.Count];
+        for (var i = 0; i < samples.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            float sum = 0f;
+            for (var j = 0; j < samples.Count; j++)
+            {
+                if (i == j) continue;
+                sum += await ComputeSimilarity(samples[i], samples[j]);
+            }
+            agreement[i] = sum / (samples.Count - 1);
+        }
+
+        var bestIndex = 0;
+        for (var i = 1; i < agreement.Length; i++)
+            if (agreement[i] > agreement[bestIndex])
+                bestIndex = i;
+
+        return (bestIndex, agreement[bestIndex]);
     }
 
     private async Task<SageState> ExecuteSigma(SageState state, CancellationToken cancellationToken)

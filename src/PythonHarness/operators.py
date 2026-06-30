@@ -94,21 +94,30 @@ class RageEngine:
         return state
 
     def _chi(self, state: SageState) -> SageState:
-        candidates: list[tuple[str, float]] = []
+        # Sample independently at several temperatures and select the candidate
+        # that the other samples most agree with (self-consistency). This is a
+        # real signal: a model confident in its answer tends to reproduce
+        # similar content across resamples, while a hallucinated or unstable
+        # answer tends to be an outlier relative to its own resamples. That is
+        # a meaningful improvement over the previous proxy, which measured the
+        # internal variance of a single candidate's embedding vector — a
+        # number with no relationship to confidence, coherence, or entropy.
+        samples = []
         for temperature in (0.1, 0.3, 0.5):
             prompt = (
                 "Rewrite for precision and coherence while preserving meaning:\n\n"
                 f"{state.text}"
             )
-            candidate = self._llm.generate(prompt, temperature=temperature)
-            entropy = self._metrics.calculate_perplexity(candidate)
-            candidates.append((candidate, entropy))
+            samples.append(self._llm.generate(prompt, temperature=temperature))
 
-        best_text, best_entropy = min(candidates, key=lambda item: item[1])
-        state.text = best_text
-        state.entropy = best_entropy
-        state.coherence = 1.0 / (1.0 + best_entropy)
-        state.log("χ", f"Selected lowest entropy candidate: {best_entropy:.3f}")
+        best_index, best_agreement = self._metrics.select_consensus(samples)
+        state.text = samples[best_index]
+        state.coherence = best_agreement
+        state.entropy = 1.0 - best_agreement
+        state.log(
+            "χ",
+            f"Selected consensus candidate (agreement={best_agreement:.3f}) across {len(samples)} samples",
+        )
         return state
 
     def _sigma(self, state: SageState) -> SageState:

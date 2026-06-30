@@ -138,12 +138,19 @@ public sealed class GovernedEngine
 
         try
         {
+            // Normalize unicode/zero-width chars and strip injection scaffolding
+            // before anything else touches this text — ethics evaluation, emotion
+            // inference, and prompt construction all use the sanitized form so a
+            // zero-width-space obfuscated phrase can't slip past Layer 0 and still
+            // reach the model.
+            var sanitizedText = _ethics.SanitizeForProcessing(input.Text);
+
             var emotionalState = await _emotions.UpdateState(
-                input.Text, _memory.LastResponse);
+                sanitizedText, _memory.LastResponse);
 
             if (_profile.EnableLayer0)
             {
-                var inputClearance = _ethics.EvaluateInput(input.Text);
+                var inputClearance = _ethics.EvaluateInput(sanitizedText, _profile.EnableLayer1);
                 if (!inputClearance.Allowed)
                 {
                     EnforceClearance(inputClearance);
@@ -159,7 +166,7 @@ public sealed class GovernedEngine
                     RequiredConstraints = new[] { "Never invent sources", "Mark uncertainty when needed" }
                 });
 
-            var promptPackage = new PromptPackage(systemInstruction, input.Text, contextItems);
+            var promptPackage = new PromptPackage(systemInstruction, sanitizedText, contextItems);
             var draft = await _llm.GenerateAsync(promptPackage, 0.3f, cancellationToken);
 
             var state = new SageState
@@ -169,13 +176,13 @@ public sealed class GovernedEngine
             };
             state.Memory.AddRange(contextItems);
 
-            var qcContext = BuildQcContext(input.Text);
+            var qcContext = BuildQcContext(sanitizedText);
             var pipeline = BuildPipeline(qcContext.TaskKind);
             var transformed = await _engine.ExecuteSequence(pipeline, state, cancellationToken);
 
-            var profile = SageProfileSelector.Select(input.Text, qcContext);
+            var profile = SageProfileSelector.Select(sanitizedText, qcContext);
             var qc = await SageGuardrailController.EvaluateAsync(
-                input.Text, transformed.Text, contextItems, profile, qcContext, cancellationToken);
+                sanitizedText, transformed.Text, contextItems, profile, qcContext, cancellationToken);
 
             var finalText = qc.Passed
                 ? transformed.Text
@@ -209,7 +216,7 @@ public sealed class GovernedEngine
 
             _memory.AddExperience(new Experience
             {
-                Input = new OperatorResult { Operator = "input", Output = input.Text },
+                Input = new OperatorResult { Operator = "input", Output = sanitizedText },
                 Reasoning = new InferredSolution
                 {
                     Content = draft,

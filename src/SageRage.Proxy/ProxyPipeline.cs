@@ -52,7 +52,10 @@ namespace SageRage.Proxy
             if (!_config.EnableEthicsChecks)
                 return null;
 
-            var clearance = _ethics.EvaluateInput(userText);
+            // Normalize/de-obfuscate before matching, so a zero-width-space or
+            // letter-spaced payload can't slip past the proxy's input check.
+            var sanitized = _ethics.SanitizeForProcessing(userText);
+            var clearance = _ethics.EvaluateInput(sanitized);
             return clearance.Allowed ? null : clearance.Reason;
         }
 

@@ -64,13 +64,23 @@ public sealed class GovernanceProfile
     /// <summary>Enable Layer 0 hard prohibitions (should almost never be disabled).</summary>
     public bool EnableLayer0 { get; init; } = true;
 
-    /// <summary>Enable Layer 1 safety constraints.</summary>
+    /// <summary>Enable Layer 1 safety/compliance pattern checks on input. Enforced by <see cref="SageRage.Domain.RageEthicsStack"/>.</summary>
     public bool EnableLayer1 { get; init; } = true;
 
-    /// <summary>Enable Layer 2 contextual risk assessment.</summary>
+    /// <summary>
+    /// Reserved for Layer 2 contextual risk assessment. No Layer 2 implementation
+    /// exists yet in either the C# or Python runtime — setting this has no effect.
+    /// Documented here rather than silently ignored so the gap is visible instead
+    /// of implying enforcement that doesn't happen.
+    /// </summary>
     public bool EnableLayer2 { get; init; } = true;
 
-    /// <summary>Enable Layer 3 stylistic alignment.</summary>
+    /// <summary>
+    /// Reserved for Layer 3 stylistic alignment. No Layer 3 implementation exists
+    /// yet in either the C# or Python runtime — setting this has no effect.
+    /// Documented here rather than silently ignored so the gap is visible instead
+    /// of implying enforcement that doesn't happen.
+    /// </summary>
     public bool EnableLayer3 { get; init; } = true;
 
     /// <summary>Lock the agent permanently on Layer 0 violation (requires human reset).</summary>

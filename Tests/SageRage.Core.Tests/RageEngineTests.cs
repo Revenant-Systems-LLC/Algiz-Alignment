@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,27 @@ public class RageEngineTests
         Assert.NotNull(result.Entropy);
         Assert.NotNull(result.SimilarityToInput);
         Assert.True(result.Trace.Steps.Count >= 4);
+    }
+
+    [Fact]
+    public async Task ExecuteChi_EntropyAndCoherenceAreComplementaryAndBounded()
+    {
+        // Regression for the tautology bug: coherence used to be defined as
+        // 1/(1+entropy), a formula-coupled restatement of the same number
+        // rather than two independent signals. The new selection criterion
+        // (cross-sample agreement) keeps entropy/coherence complementary by
+        // construction too, but now the underlying number is a real signal —
+        // how much the model's own resamples agree with each other — instead
+        // of the variance of one sample's own embedding vector.
+        var engine = new RageEngine(new FakeProvider());
+        var state = new SageState { Text = "Draft answer about quarterly revenue." };
+
+        var result = await engine.Execute(CoreOperator.Chi, state);
+
+        Assert.NotNull(result.Coherence);
+        Assert.NotNull(result.Entropy);
+        Assert.InRange(result.Coherence!.Value, 0f, 1f);
+        Assert.True(Math.Abs((result.Coherence!.Value + result.Entropy!.Value) - 1f) < 1e-5f);
     }
 
     private sealed class FakeProvider : ILLMProvider

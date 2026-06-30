@@ -72,3 +72,18 @@ def bound_text(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars].rstrip() + "…"
+
+
+# A run of 3+ single-character "words" separated by spaces (e.g. "k i l l") is
+# the classic letter-spacing bypass for keyword filters. Genuine English text
+# essentially never produces a run this long ("a"/"I" are the only common
+# one-letter words), so collapsing only these runs lets pattern matching catch
+# the evasion technique without destroying word boundaries everywhere else —
+# unlike blindly stripping all whitespace from the whole message, which makes
+# "kill" match inside "skills".
+_SPACED_LETTER_RUN = re.compile(r"\b(?:\w[ \t]+){2,}\w\b")
+
+
+def collapse_spaced_letters(text: str) -> str:
+    """Collapse letter-spaced obfuscation runs (e.g. 'b u i l d') into words."""
+    return _SPACED_LETTER_RUN.sub(lambda m: re.sub(r"[ \t]+", "", m.group(0)), text)

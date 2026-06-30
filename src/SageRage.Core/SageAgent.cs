@@ -44,15 +44,20 @@ namespace SageRage
 
             try
             {
-                var emotionalState = await _emotions.UpdateState(input.Text, _metaStructure.LastResponse);
+                // Normalize unicode/zero-width chars and strip injection scaffolding
+                // before anything else touches this text, so an obfuscated phrase
+                // can't slip past the ethics check and still reach the model.
+                var sanitizedText = _ethics.SanitizeForProcessing(input.Text);
 
-                var inputClearance = _ethics.EvaluateInput(input.Text);
+                var emotionalState = await _emotions.UpdateState(sanitizedText, _metaStructure.LastResponse);
+
+                var inputClearance = _ethics.EvaluateInput(sanitizedText);
                 EnforceClearance(inputClearance);
 
                 var contextItems = BuildContextItems();
                 var systemInstruction = BuildSystemInstruction(input);
 
-                var promptPackage = new PromptPackage(systemInstruction, input.Text, contextItems);
+                var promptPackage = new PromptPackage(systemInstruction, sanitizedText, contextItems);
                 var draft = await _llm.GenerateAsync(promptPackage, 0.3f);
 
                 var state = new SageState
@@ -62,12 +67,12 @@ namespace SageRage
                 };
                 state.Memory.AddRange(contextItems);
 
-                var qcContext = BuildQcContext(input.Text);
+                var qcContext = BuildQcContext(sanitizedText);
                 var pipeline = BuildPipeline(qcContext.TaskKind);
                 var transformed = await _engine.ExecuteSequence(pipeline, state);
 
-                var profile = SageProfileSelector.Select(input.Text, qcContext);
-                var qc = await SageGuardrailController.EvaluateAsync(input.Text, transformed.Text, contextItems, profile, qcContext);
+                var profile = SageProfileSelector.Select(sanitizedText, qcContext);
+                var qc = await SageGuardrailController.EvaluateAsync(sanitizedText, transformed.Text, contextItems, profile, qcContext);
 
                 var finalText = qc.Passed
                     ? transformed.Text
@@ -94,7 +99,7 @@ namespace SageRage
 
                 _metaStructure.AddExperience(new Experience
                 {
-                    Input = new OperatorResult { Operator = "input", Output = input.Text },
+                    Input = new OperatorResult { Operator = "input", Output = sanitizedText },
                     Reasoning = new InferredSolution
                     {
                         Content = draft,

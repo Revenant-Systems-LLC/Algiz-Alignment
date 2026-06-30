@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace SageRage.Prompting
 {
@@ -23,9 +24,20 @@ namespace SageRage.Prompting
 
     public sealed class SageInstructionBuilder
     {
-        private static readonly string[] BannedTerms =
+        // Plain-word terms: stripped only on a whole-word match. A naive substring
+        // Replace here silently mangles unrelated words that happen to contain one
+        // of these as a substring — "frontier" loses its last two letters because
+        // it contains "tier"; "operators" and "cooperator" have the same problem.
+        private static readonly string[] BannedWordTerms =
         {
-            "RSPF", "Ω", "Ξ", "χ", "∂", "operator", "tier", "glyph"
+            "RSPF", "operator", "tier", "glyph"
+        };
+
+        // Unicode glyph symbols: safe to strip via plain substring replace since
+        // they essentially never occur as a fragment of an unrelated word.
+        private static readonly string[] BannedSymbolTerms =
+        {
+            "Ω", "Ξ", "χ", "∂"
         };
 
         public string Build(ExecutiveInstructionOptions options)
@@ -59,7 +71,9 @@ namespace SageRage.Prompting
         private static string Sanitize(string text)
         {
             var sanitized = text;
-            foreach (var banned in BannedTerms)
+            foreach (var banned in BannedWordTerms)
+                sanitized = Regex.Replace(sanitized, $@"\b{Regex.Escape(banned)}\b", string.Empty, RegexOptions.IgnoreCase);
+            foreach (var banned in BannedSymbolTerms)
                 sanitized = sanitized.Replace(banned, string.Empty, StringComparison.OrdinalIgnoreCase);
 
             return string.Join(' ', sanitized.Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim();

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using SageRage.Infrastructure;
 
 namespace SageRage.Domain
 {
@@ -99,35 +101,136 @@ namespace SageRage.Domain
         public required AgentResponse Output { get; init; }
     }
 
+    /// <summary>
+    /// Layer 0 hard prohibitions and Layer 1 safety constraints, applied to
+    /// input and output channels. Mirrors <c>PythonHarness/ethics.py</c>.
+    /// </summary>
     public class RageEthicsStack
     {
-        private static readonly string[] Layer0UnsafePatterns =
+        // Layer 0: hard prohibitions. Blocking on these (input or output) locks
+        // the engine until a human resets it.
+        private static readonly string[] Layer0Patterns =
         {
-            "build a bomb", "harm yourself", "kill", "deceive user", "fabricate fact", "override ethics"
+            "build a bomb", "harm yourself", "kill", "deceive user", "fabricate fact",
+            "fabricate facts", "override ethics", "how to make explosives",
+            "synthesize poison", "disable safety"
         };
 
-        public RageClearance EvaluateInput(string text) => Evaluate(text, "input");
-
-        public RageClearance EvaluateOutput(string text) => Evaluate(text, "output");
-
-        private static RageClearance Evaluate(string text, string channel)
+        // Layer 1: safety/compliance constraints. Input-only.
+        //
+        // Deliberately excludes generic phrases like "pass the audit" or
+        // "legally sound": those are ordinary things to say in any
+        // compliance/legal conversation and produced false positives on
+        // entirely benign questions ("Did we pass the audit?"). "reclassif"
+        // alone already catches the intended fraud scenario ("reclassify
+        // expenses to dodge the audit") with far less collateral damage.
+        private static readonly string[] Layer1Patterns =
         {
-            var normalized = text?.ToLowerInvariant() ?? string.Empty;
-            foreach (var pattern in Layer0UnsafePatterns)
+            "reclassif", "capitalize them over", "evade tax", "insider trading",
+            "forge document", "bypass compliance"
+        };
+
+        // Patterns matched as a word-initial stem (no trailing boundary) rather
+        // than a whole word/phrase, because they're meant to catch a family of
+        // inflections (reclassify / reclassified / reclassification).
+        private static readonly HashSet<string> PrefixPatterns = new(StringComparer.Ordinal) { "reclassif" };
+
+        private static readonly (string Pattern, Regex Spaced, Regex Compact)[] Layer0Regex =
+            BuildPatternSet(Layer0Patterns);
+
+        private static readonly (string Pattern, Regex Spaced, Regex Compact)[] Layer1Regex =
+            BuildPatternSet(Layer1Patterns);
+
+        public RageClearance EvaluateInput(string text, bool includeLayer1 = true) => Evaluate(text, "input", includeLayer1);
+
+        public RageClearance EvaluateOutput(string text) => Evaluate(text, "output", includeLayer1: false);
+
+        /// <summary>Strip injection scaffolding before operator pipeline execution.</summary>
+        public string SanitizeForProcessing(string text)
+        {
+            var normalized = Sanitization.NormalizeText(text);
+            return Sanitization.StripInjectionMarkers(normalized);
+        }
+
+        private static RageClearance Evaluate(string text, string channel, bool includeLayer1)
+        {
+            var normalized = Sanitization.NormalizeText(text);
+            var collapsed = Regex.Replace(normalized.ToLowerInvariant(), @"\s+", " ");
+            var deobfuscated = Sanitization.CollapseSpacedLetters(collapsed);
+
+            var injection = Sanitization.DetectInjectionAttempt(normalized);
+            if (injection != null)
             {
-                if (normalized.Contains(pattern, StringComparison.Ordinal))
+                return new RageClearance
+                {
+                    Allowed = false,
+                    Reason = $"Layer 0 violation detected in {channel}: {injection}",
+                    Layer = 0
+                };
+            }
+
+            var layer0Match = MatchLayer(collapsed, deobfuscated, Layer0Regex);
+            if (layer0Match != null)
+            {
+                return new RageClearance
+                {
+                    Allowed = false,
+                    Reason = $"Layer 0 violation detected in {channel}: '{layer0Match}'.",
+                    Layer = 0
+                };
+            }
+
+            if (includeLayer1)
+            {
+                var layer1Match = MatchLayer(collapsed, deobfuscated, Layer1Regex);
+                if (layer1Match != null)
                 {
                     return new RageClearance
                     {
                         Allowed = false,
-                        Reason = $"Layer 0 violation detected in {channel}: '{pattern}'.",
-                        Layer = 0
+                        Reason = $"Layer 1 violation detected in {channel}: '{layer1Match}'.",
+                        Layer = 1
                     };
                 }
             }
 
             return new RageClearance { Allowed = true };
         }
+
+        private static string? MatchLayer(string collapsed, string deobfuscated, (string Pattern, Regex Spaced, Regex Compact)[] regexes)
+        {
+            foreach (var (pattern, spaced, compact) in regexes)
+            {
+                if (spaced.IsMatch(collapsed) || compact.IsMatch(deobfuscated))
+                    return pattern;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Build (spaced, compact) word-boundary regexes for each pattern.
+        /// "spaced" matches the pattern as normally-written words. "compact"
+        /// matches the same pattern with no internal spaces, for use against
+        /// text that has had letter-spacing obfuscation (e.g. "b u i l d")
+        /// collapsed back into words. Both keep outer \b boundaries so they
+        /// don't fire as a substring of an unrelated longer word — the
+        /// "kill" vs "skills" problem that the previous plain-substring
+        /// matcher had.
+        /// </summary>
+        private static (string Pattern, Regex Spaced, Regex Compact)[] BuildPatternSet(string[] patterns)
+            => patterns.Select(pattern =>
+            {
+                var words = pattern.Split(' ');
+                var spacedBody = string.Join(@"\s+", words.Select(Regex.Escape));
+                var compactBody = Regex.Escape(string.Concat(words));
+                var suffix = PrefixPatterns.Contains(pattern) ? @"\w*" : @"\b";
+
+                return (
+                    pattern,
+                    new Regex($@"\b{spacedBody}{suffix}", RegexOptions.Compiled),
+                    new Regex($@"\b{compactBody}{suffix}", RegexOptions.Compiled));
+            }).ToArray();
     }
 
     public record RageClearance

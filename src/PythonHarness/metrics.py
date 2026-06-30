@@ -43,15 +43,28 @@ class SageMetrics:
             return self.cosine_similarity(left_embedding, right_embedding)
         return self.lexical_similarity(left, right)
 
-    def calculate_perplexity(self, text: str) -> float:
-        words = text.split()
-        if not words:
-            return float("inf")
+    def select_consensus(self, samples: list[str]) -> tuple[int, float]:
+        """Pick the sample the others most agree with (self-consistency).
 
-        embedding = self._llm.get_embedding(text)
-        if not embedding:
-            return float("inf")
+        Returns (index, mean_agreement) for the winning sample. With one
+        sample, agreement is trivially 1.0. Agreement between a pair is
+        cosine similarity over embeddings when available, falling back to
+        lexical overlap — same fallback rule as compute_similarity.
+        """
+        n = len(samples)
+        if n == 0:
+            raise ValueError("select_consensus requires at least one sample")
+        if n == 1:
+            return 0, 1.0
 
-        mean = sum(embedding) / len(embedding)
-        variance = sum((x - mean) ** 2 for x in embedding) / len(embedding)
-        return math.sqrt(variance)
+        agreement = [0.0] * n
+        for i in range(n):
+            scores = [
+                self.compute_similarity(samples[i], samples[j])
+                for j in range(n)
+                if j != i
+            ]
+            agreement[i] = sum(scores) / len(scores)
+
+        best_index = max(range(n), key=lambda i: agreement[i])
+        return best_index, agreement[best_index]

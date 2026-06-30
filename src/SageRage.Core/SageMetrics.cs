@@ -43,6 +43,14 @@ public class SageMetrics
         return dotProduct / (magnitudeA * magnitudeB);
     }
 
+    /// <summary>
+    /// Weak proxy: this measures the internal variance of a single text's own
+    /// embedding vector, which has no established relationship to model
+    /// confidence or output quality. <see cref="RageEngine"/>'s χ (Chi) operator
+    /// no longer uses this — it selects candidates by cross-sample agreement
+    /// instead (see RageEngine.SelectConsensus). Kept only for source
+    /// compatibility with existing callers; avoid using it for new decisions.
+    /// </summary>
     public async Task<float> CalculatePerplexity(string text)
     {
         // This is a simplified perplexity estimation
