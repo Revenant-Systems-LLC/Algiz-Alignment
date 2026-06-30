@@ -418,8 +418,6 @@ For local development, add these entries to your local `.gitignore`:
 ```gitignore
 AGENTS.md
 CLAUDE.md
-prompt/persona/Keystone.md
-prompt/persona/V.md
 ```
 
 ---
