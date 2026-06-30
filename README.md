@@ -148,7 +148,7 @@ Agent Response
 ### Solution Structure
 
 ```text
-SAIGE-RAGE.sln
+SAGE-RAGE.sln
 |
 |-- src/
 |   |-- SageRage.Core         Core library (operators, providers, ethics, QC, metrics)
@@ -378,7 +378,7 @@ Final output style:
 ### Build
 
 ```bash
-dotnet build SAIGE-RAGE.sln
+dotnet build SAGE-RAGE.sln
 ```
 
 ### First Run
@@ -406,7 +406,7 @@ dotnet run --project src/SageRage.Console -- --setup
 ### Run Tests
 
 ```bash
-dotnet test SAIGE-RAGE.sln
+dotnet test SAGE-RAGE.sln
 ```
 
 51 tests across two projects (26 core + 25 proxy).
