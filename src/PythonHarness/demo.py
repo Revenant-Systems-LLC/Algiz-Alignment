@@ -5,11 +5,7 @@ from dotenv import load_dotenv
 from pipeline import GovernedEngine, RageEngine, create_default_provider
 from sage_types import AgentConfig, TemporalConfig
 
-dotenv_path = r"B:\secrets\SageRage.env"
-if os.path.exists(dotenv_path):
-    load_dotenv(dotenv_path)
-else:
-    load_dotenv()
+load_dotenv()
 
 
 def print_separator(title: str) -> None:

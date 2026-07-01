@@ -195,7 +195,7 @@ Employee / Agent
 
 | Demo mode (`SAIGE_DEMO_MODE=true`) | Production |
 |---|---|
-| No API keys | Real keys via `SecretLoader` / B:\secrets |
+| No API keys | Real keys via `SecretLoader` (DPAPI-encrypted, per Windows user) |
 | Deterministic demo provider | Live Gemini, Claude, OpenAI, Ollama |
 | Seeded enterprise profiles | Customer's actual agents |
 | Background simulation | Real traffic through proxy |

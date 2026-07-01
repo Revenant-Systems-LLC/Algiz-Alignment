@@ -406,20 +406,20 @@ internal static class Program
     {
         Console.WriteLine("\u2500\u2500 SAGE-RAGE Proxy Configuration \u2500\u2500\n");
 
-        // Step 1: Load secrets from configured location
+        // Step 1: Load secrets from the DPAPI-encrypted profile
         string? apiKey = null;
         var (secretsOk, secretKeys, secretsCfg) = SecretLoader.LoadFromConfig();
         if (secretsOk)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"  Loaded {secretKeys.Count} keys from {secretsCfg.Profile}.env");
+            Console.WriteLine($"  Loaded {secretKeys.Count} keys from encrypted profile '{secretsCfg.Profile}'");
             Console.ResetColor();
         }
         else
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine($"  Could not load {secretsCfg.Profile}.env from {secretsCfg.SecretsDir}");
-            Console.WriteLine("  Using environment variables only. Run with --setup to reconfigure.");
+            Console.WriteLine($"  No encrypted secrets found for profile '{secretsCfg.Profile}'.");
+            Console.WriteLine("  Using environment variables only. Run with --setup to configure keys.");
             Console.ResetColor();
         }
 
@@ -468,7 +468,7 @@ internal static class Program
                 break;
         }
 
-        // Resolve the API key from environment (loaded from B drive or system)
+        // Resolve the API key from environment (loaded from the encrypted secrets profile, or system)
         if (envKeyName is not null)
         {
             apiKey = SecretLoader.GetKey(envKeyName);

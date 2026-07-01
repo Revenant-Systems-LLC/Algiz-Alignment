@@ -162,7 +162,7 @@ SAGE-RAGE.sln
 |
 |-- docs/                     Whitepaper and technical documentation
 |-- prompt/persona/           Agent persona files (Keystone, V, etc.)
-|-- .env.example              Template for API keys
+|-- .env.example              Template for Python harness API keys (C# side uses SecretLoader/DPAPI)
 ```
 
 ### Core Components
@@ -179,7 +179,7 @@ SAGE-RAGE.sln
 | `ProxyPipeline` | Runs intercepted proxy content through full alignment stack |
 | `ProxyServer` | Kestrel server that aligns OpenAI-compatible API traffic |
 | `SageMetrics` | Coherence, entropy, and similarity measurement |
-| `SecretLoader` | Secure API key loading from encrypted/locked drives |
+| `SecretLoader` | Secure API key loading via Windows DPAPI (per-user encrypted, never plaintext) |
 
 ---
 
@@ -329,11 +329,10 @@ Agents connect locally; proxy applies governance and injects upstream auth.
 
 ### Security Model
 
-- Keys stored on lockable encrypted drive (`B:\secrets\SageRage.env`)
-- Keys loaded into proxy process memory at startup
-- Drive can be re-locked after startup
+- Keys stored DPAPI-encrypted, tied to the current Windows user account
+- Keys loaded into proxy process memory at startup, process-scoped only
 - Agents never see real API keys
-- `SecretLoader` reads `.env` profiles, not system-wide environment variables
+- `SecretLoader` never reads or writes plaintext key files
 
 ### Endpoints
 
@@ -388,9 +387,8 @@ dotnet run --project src/SageRage.Console
 ```
 
 On first launch, setup prompts for:
-1. **Secrets directory** — where your `.env` file lives (default: `B:\secrets`)
-2. **Profile name** — which `.env` file to load (default: `SageRage`)
-3. Optional `.env` creation from `.env.example` if missing
+1. **Profile name** — which encrypted secrets profile to use (default: `SageRage`)
+2. Each known API key — entered once, then encrypted to disk via Windows DPAPI
 
 Then choose:
 - **Persona** — Delta, Karne, Keystone, Noir, or V

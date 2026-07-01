@@ -1,83 +1,76 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Versioning;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace SageRage.Infrastructure
 {
     /// <summary>
-    /// Loads API keys from .env files on a secure drive (e.g. B:\secrets).
-    /// Keys are loaded into process-scoped environment variables only —
-    /// never persisted to system/user env vars.
+    /// Loads API keys from a DPAPI-encrypted secrets file, tied to the current
+    /// Windows user account. Keys are loaded into process-scoped environment
+    /// variables only — never persisted to system/user env vars, and never
+    /// written to disk in plaintext.
+    ///
+    /// Windows-only: DPAPI (<see cref="ProtectedData"/>) has no equivalent on
+    /// Linux/macOS and throws <see cref="PlatformNotSupportedException"/> there.
+    /// This matches the rest of this project's Windows-targeted surfaces
+    /// (SageRage.UI, SageRage.Console).
     /// </summary>
+    [SupportedOSPlatform("windows")]
     public static class SecretLoader
     {
-        public const string DefaultSecretsDir = @"B:\secrets";
         public const string DefaultProfile = "SageRage";
 
         private static readonly string ConfigDir =
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SageRage");
         private static readonly string ConfigFile =
             Path.Combine(ConfigDir, "secrets.json");
+        private static readonly string SecretsDir =
+            Path.Combine(ConfigDir, "secrets");
 
-        /// <summary>
-        /// Persisted user configuration for secrets loading.
-        /// </summary>
+        // Scopes the encrypted blob to this app specifically (DPAPI's optional
+        // entropy parameter), so a file dropped in place by something else
+        // can't silently be decrypted here.
+        private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("SageRage.SecretLoader.v1");
+
+        /// <summary>Persisted user configuration for secrets loading.</summary>
         public sealed class SecretsConfig
         {
-            public string SecretsDir { get; set; } = DefaultSecretsDir;
             public string Profile { get; set; } = DefaultProfile;
         }
 
+        private static string SecretsFilePath(string profile)
+            => Path.Combine(SecretsDir, $"{profile}.dpapi");
+
         /// <summary>
-        /// Load a named .env profile from the secrets directory.
-        /// Returns the list of variable names that were loaded.
+        /// Load a named profile, decrypting via DPAPI and setting each key as a
+        /// process-scoped environment variable. Returns the variable names loaded.
         /// </summary>
-        public static IReadOnlyList<string> Load(
-            string profile,
-            string? secretsDir = null)
+        public static IReadOnlyList<string> Load(string profile)
         {
-            var dir = secretsDir ?? DefaultSecretsDir;
-            var envFile = Path.Combine(dir, $"{profile}.env");
-
-            if (!File.Exists(envFile))
+            var path = SecretsFilePath(profile);
+            if (!File.Exists(path))
                 throw new FileNotFoundException(
-                    $"Secrets file not found: {envFile}. Is the secure drive unlocked?",
-                    envFile);
+                    $"Secrets profile not found: {path}. Run with --setup to create one.", path);
 
-            var loaded = new List<string>();
-            foreach (var rawLine in File.ReadAllLines(envFile))
-            {
-                var line = rawLine.Trim();
-                if (string.IsNullOrEmpty(line) || line.StartsWith('#'))
-                    continue;
+            var values = ReadEncrypted(path);
+            foreach (var (key, value) in values)
+                Environment.SetEnvironmentVariable(key, value, EnvironmentVariableTarget.Process);
 
-                var eqIndex = line.IndexOf('=');
-                if (eqIndex <= 0)
-                    continue;
-
-                var key = line[..eqIndex].Trim();
-                var val = line[(eqIndex + 1)..].Trim();
-
-                Environment.SetEnvironmentVariable(key, val, EnvironmentVariableTarget.Process);
-                loaded.Add(key);
-            }
-
-            return loaded;
+            return new List<string>(values.Keys);
         }
 
         /// <summary>
-        /// Try to load a profile. Returns false if the file doesn't exist
-        /// (drive locked or missing profile), true if loaded successfully.
+        /// Try to load a profile. Returns false if no secrets file exists for it yet.
         /// </summary>
-        public static bool TryLoad(
-            string profile,
-            out IReadOnlyList<string> loaded,
-            string? secretsDir = null)
+        public static bool TryLoad(string profile, out IReadOnlyList<string> loaded)
         {
             try
             {
-                loaded = Load(profile, secretsDir);
+                loaded = Load(profile);
                 return true;
             }
             catch (FileNotFoundException)
@@ -87,9 +80,7 @@ namespace SageRage.Infrastructure
             }
         }
 
-        /// <summary>
-        /// Clear all variables that were loaded from a profile.
-        /// </summary>
+        /// <summary>Clear all variables that were loaded from a profile.</summary>
         public static void Unload(IReadOnlyList<string> keys)
         {
             foreach (var key in keys)
@@ -97,44 +88,17 @@ namespace SageRage.Infrastructure
         }
 
         /// <summary>
-        /// Check if the secrets directory is accessible.
-        /// </summary>
-        public static bool IsAvailable(string? secretsDir = null)
-            => Directory.Exists(secretsDir ?? DefaultSecretsDir);
-
-        /// <summary>
-        /// List available .env profiles in the secrets directory.
-        /// </summary>
-        public static IReadOnlyList<string> ListProfiles(string? secretsDir = null)
-        {
-            var dir = secretsDir ?? DefaultSecretsDir;
-            if (!Directory.Exists(dir))
-                return Array.Empty<string>();
-
-            var profiles = new List<string>();
-            foreach (var file in Directory.GetFiles(dir, "*.env"))
-                profiles.Add(Path.GetFileNameWithoutExtension(file));
-
-            return profiles;
-        }
-
-        /// <summary>
         /// Get a specific key from the environment, returning null if not set.
         /// Convenience wrapper — does NOT log or expose the value.
         /// </summary>
-        public static string? GetKey(string name)
-            => Environment.GetEnvironmentVariable(name);
+        public static string? GetKey(string name) => Environment.GetEnvironmentVariable(name);
 
         // ── Config persistence ──────────────────────────────────
 
-        /// <summary>
-        /// Check whether first-run setup has been completed.
-        /// </summary>
+        /// <summary>Check whether first-run setup has been completed.</summary>
         public static bool IsConfigured() => File.Exists(ConfigFile);
 
-        /// <summary>
-        /// Load saved configuration, or return defaults if not configured.
-        /// </summary>
+        /// <summary>Load saved configuration, or return defaults if not configured.</summary>
         public static SecretsConfig LoadConfig()
         {
             if (!File.Exists(ConfigFile))
@@ -151,9 +115,7 @@ namespace SageRage.Infrastructure
             }
         }
 
-        /// <summary>
-        /// Save configuration to disk.
-        /// </summary>
+        /// <summary>Save configuration to disk (profile name only — never secrets).</summary>
         public static void SaveConfig(SecretsConfig config)
         {
             Directory.CreateDirectory(ConfigDir);
@@ -161,123 +123,25 @@ namespace SageRage.Infrastructure
             File.WriteAllText(ConfigFile, json);
         }
 
-        // ── Setup wizard ──────────────────────────────────
-
         /// <summary>
-        /// Interactive first-run setup. Prompts user for secrets directory
-        /// and profile name, optionally scaffolds a new .env from the template.
-        /// Returns the resolved config.
+        /// Encrypt and store a full set of secrets for a profile via DPAPI,
+        /// scoped to the current Windows user. Overwrites any existing file.
         /// </summary>
-        public static SecretsConfig RunSetup(string? templatePath = null)
+        public static void SaveSecrets(string profile, IReadOnlyDictionary<string, string> values)
         {
-            Console.WriteLine("\n\u2500\u2500 SAGE-RAGE Secrets Setup \u2500\u2500\n");
-            Console.WriteLine("This app loads API keys from an .env file on a secure drive.");
-            Console.WriteLine("Keys are loaded into this process only and never stored in");
-            Console.WriteLine("system environment variables.\n");
-
-            // 1. Secrets directory
-            Console.Write($"Secrets directory (Enter = {DefaultSecretsDir}) > ");
-            var dirInput = Console.ReadLine()?.Trim();
-            var secretsDir = string.IsNullOrWhiteSpace(dirInput) ? DefaultSecretsDir : dirInput;
-
-            // 2. Profile name
-            Console.Write($"Profile name (Enter = {DefaultProfile}) > ");
-            var profileInput = Console.ReadLine()?.Trim();
-            var profile = string.IsNullOrWhiteSpace(profileInput) ? DefaultProfile : profileInput;
-
-            var envFilePath = Path.Combine(secretsDir, $"{profile}.env");
-
-            // 3. Check if it exists, offer to create from template
-            if (!File.Exists(envFilePath))
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"\n  {envFilePath} does not exist.");
-                Console.ResetColor();
-
-                if (Directory.Exists(secretsDir))
-                {
-                    Console.Write("  Create it from template? (Y/n) > ");
-                    var createChoice = Console.ReadLine()?.Trim().ToUpperInvariant();
-
-                    if (createChoice != "N")
-                    {
-                        ScaffoldEnvFile(envFilePath, templatePath);
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine($"  Created {envFilePath}");
-                        Console.WriteLine("  Edit this file and fill in your API keys before running again.");
-                        Console.ResetColor();
-                    }
-                }
-                else
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine($"  Directory {secretsDir} not found. Is the drive unlocked?");
-                    Console.ResetColor();
-                }
-            }
-            else
-            {
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"\n  Found {envFilePath}");
-                Console.ResetColor();
-            }
-
-            // 4. Save config
-            var config = new SecretsConfig { SecretsDir = secretsDir, Profile = profile };
-            SaveConfig(config);
-
-            Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.WriteLine($"\n  Config saved to {ConfigFile}");
-            Console.WriteLine("  Run setup again with --setup flag.\n");
-            Console.ResetColor();
-
-            return config;
+            Directory.CreateDirectory(SecretsDir);
+            var json = JsonSerializer.Serialize(values);
+            var plainBytes = Encoding.UTF8.GetBytes(json);
+            var encrypted = ProtectedData.Protect(plainBytes, Entropy, DataProtectionScope.CurrentUser);
+            File.WriteAllBytes(SecretsFilePath(profile), encrypted);
         }
 
-        /// <summary>
-        /// Copy the .env.example template to the target path.
-        /// </summary>
-        public static void ScaffoldEnvFile(string targetPath, string? templatePath = null)
+        private static Dictionary<string, string> ReadEncrypted(string path)
         {
-            if (templatePath is not null && File.Exists(templatePath))
-            {
-                File.Copy(templatePath, targetPath, overwrite: false);
-                return;
-            }
-
-            // Fallback: find .env.example relative to the running assembly
-            var candidates = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, ".env.example"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".env.example"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", ".env.example"),
-            };
-
-            foreach (var candidate in candidates)
-            {
-                var resolved = Path.GetFullPath(candidate);
-                if (File.Exists(resolved))
-                {
-                    File.Copy(resolved, targetPath, overwrite: false);
-                    return;
-                }
-            }
-
-            // Last resort: write a minimal template inline
-            File.WriteAllText(targetPath,
-                "### SAGE-RAGE Secrets ###\n" +
-                "# Fill in your API keys below.\n\n" +
-                "GEMINI_API_KEY=\n" +
-                "OPENAI_API_KEY=\n" +
-                "ANTHROPIC_API_KEY=\n" +
-                "XAI_API_KEY=\n" +
-                "OPENROUTER_API_KEY=\n" +
-                "GIT_API_KEY=\n" +
-                "PERPLEXITY_API_KEY=\n" +
-                "BRAVE_API_KEY=\n" +
-                "HFACE_API_KEY=\n" +
-                "NVI_API_KEY=\n" +
-                "NEWS_API_KEY=\n");
+            var encrypted = File.ReadAllBytes(path);
+            var plainBytes = ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
+            var json = Encoding.UTF8.GetString(plainBytes);
+            return JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
         }
 
         /// <summary>
@@ -287,9 +151,65 @@ namespace SageRage.Infrastructure
         public static (bool success, IReadOnlyList<string> loaded, SecretsConfig config) LoadFromConfig()
         {
             var config = LoadConfig();
-            if (TryLoad(config.Profile, out var loaded, config.SecretsDir))
+            if (TryLoad(config.Profile, out var loaded))
                 return (true, loaded, config);
             return (false, loaded, config);
+        }
+
+        // ── Setup wizard ──────────────────────────────────
+
+        /// <summary>
+        /// Well-known key names prompted for during setup. Anything else can
+        /// still be loaded via <see cref="GetKey"/> once saved through
+        /// <see cref="SaveSecrets"/> directly.
+        /// </summary>
+        private static readonly string[] KnownKeys =
+        {
+            "GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY",
+            "OPENROUTER_API_KEY", "GIT_API_KEY", "PERPLEXITY_API_KEY", "BRAVE_API_KEY",
+            "HFACE_API_KEY", "NVI_API_KEY", "NEWS_API_KEY"
+        };
+
+        /// <summary>
+        /// Interactive first-run setup. Prompts for known API keys and encrypts
+        /// them to disk via DPAPI, tied to the current Windows user account.
+        /// Existing values are preserved for any key left blank. Returns the
+        /// resolved config.
+        /// </summary>
+        public static SecretsConfig RunSetup()
+        {
+            Console.WriteLine("\n── SAGE-RAGE Secrets Setup ──\n");
+            Console.WriteLine("Keys are encrypted with DPAPI, tied to your Windows user account,");
+            Console.WriteLine("and are never written to disk in plaintext.\n");
+
+            Console.Write($"Profile name (Enter = {DefaultProfile}) > ");
+            var profileInput = Console.ReadLine()?.Trim();
+            var profile = string.IsNullOrWhiteSpace(profileInput) ? DefaultProfile : profileInput;
+
+            var existing = TryLoad(profile, out _)
+                ? new Dictionary<string, string>(ReadEncrypted(SecretsFilePath(profile)))
+                : new Dictionary<string, string>();
+
+            foreach (var key in KnownKeys)
+            {
+                var hasExisting = existing.TryGetValue(key, out var currentValue) && !string.IsNullOrEmpty(currentValue);
+                Console.Write($"{key}{(hasExisting ? " (Enter = keep existing)" : "")} > ");
+                var input = Console.ReadLine();
+                if (!string.IsNullOrWhiteSpace(input))
+                    existing[key] = input.Trim();
+            }
+
+            SaveSecrets(profile, existing);
+
+            var config = new SecretsConfig { Profile = profile };
+            SaveConfig(config);
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"\n  Saved and encrypted to {SecretsFilePath(profile)}");
+            Console.WriteLine("  Run setup again with --setup to add or change keys.\n");
+            Console.ResetColor();
+
+            return config;
         }
     }
 }
