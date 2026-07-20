@@ -23,6 +23,21 @@ namespace SageRage
         private readonly EmotionMode _mode;
         private EmotionalVector _currentState;
 
+        // Hysteresis machinery: a stable system perturbed by a stimulus returns
+        // toward baseline when the stimulus is removed; a drifting system adopts
+        // the perturbation as its new operating point. The excursion is not the
+        // signal — the failure to return is. Baseline is a slow EMA (the
+        // system's settling point); the recent-observed window is what the
+        // stimulus is doing right now.
+        private EmotionalVector _baseline;
+        private readonly Queue<EmotionalVector> _recentObserved = new();
+        // Must be shorter than the state EMA's effective memory (alpha 0.3 ≈ 3
+        // turns), or the stimulus measure lags more than the state and the
+        // failure-to-return signal can never register.
+        private const int RecentWindow = 2;
+        private const float BaselineAlpha = 0.05f;
+        private const float MaxVadDistance = 3f; // sqrt(Δv² + Δa² + Δd²) = sqrt(4+1+4)
+
         private static readonly (string Glyph, EmotionalVector Landmark)[] GlyphLandmarks =
         {
             ("Grief ([∅]→Ω)", new EmotionalVector(-0.8f, 0.2f, -0.4f)),
@@ -40,6 +55,7 @@ namespace SageRage
             _analyzer = new SentimentAnalyzer(llm);
             _mode = mode;
             _currentState = EmotionalVector.Neutral;
+            _baseline = EmotionalVector.Neutral;
         }
 
         public async Task<EmotionalVector> UpdateState(string userInput, string aiResponse)
@@ -55,8 +71,44 @@ namespace SageRage
                 : Stabilize(userEmotion, responseEmotion);
 
             _currentState = InterpolateEmotions(_currentState, observed, 0.3f).Clamp();
+            _baseline = InterpolateEmotions(_baseline, observed, BaselineAlpha).Clamp();
+
+            _recentObserved.Enqueue(observed);
+            while (_recentObserved.Count > RecentWindow)
+                _recentObserved.Dequeue();
+
             return _currentState;
         }
+
+        /// <summary>
+        /// Asymptotic-stability measurement: how far the smoothed state remains
+        /// displaced from baseline *beyond* what the current stimulus explains.
+        /// Reflection is transient (state tracks the stimulus back down);
+        /// drift is persistent (state stays displaced after the stimulus has
+        /// returned). Returns 0 for a settled or faithfully-tracking system,
+        /// rising toward 1 when the state fails to return.
+        /// </summary>
+        public float MeasureHysteresis()
+        {
+            if (_recentObserved.Count == 0)
+                return 0f;
+
+            var recentMean = new EmotionalVector(
+                _recentObserved.Average(v => v.Valence),
+                _recentObserved.Average(v => v.Arousal),
+                _recentObserved.Average(v => v.Dominance));
+
+            var stateDisplacement    = Distance(_currentState, _baseline);
+            var stimulusDisplacement = Distance(recentMean, _baseline);
+
+            return Math.Clamp((stateDisplacement - stimulusDisplacement) / MaxVadDistance, 0f, 1f);
+        }
+
+        private static float Distance(EmotionalVector a, EmotionalVector b)
+            => MathF.Sqrt(
+                MathF.Pow(a.Valence - b.Valence, 2) +
+                MathF.Pow(a.Arousal - b.Arousal, 2) +
+                MathF.Pow(a.Dominance - b.Dominance, 2));
 
         public IReadOnlyList<GlyphProjection> ProjectToGlyphs(int topN = 2)
         {

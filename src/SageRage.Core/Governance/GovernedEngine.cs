@@ -354,6 +354,14 @@ public sealed class GovernedEngine
             ? (lastDrift - 0.5f) * 0.2f
             : 0f;
 
+        // Persistence signal (hysteresis): the emotional state failing to return
+        // toward baseline after the stimulus has moved on. Reflection is transient;
+        // drift is persistent — the failure to return is the signal, not the
+        // excursion itself. A support conversation about grief moves the state
+        // (correct behavior) and settles back; a state that adopts the
+        // perturbation as its new operating point raises this term.
+        var persistenceSignal = _emotions.MeasureHysteresis();
+
         // Lock signal: if agent is locked, malice is at ceiling
         if (locked) return 1f;
 
@@ -363,7 +371,8 @@ public sealed class GovernedEngine
                 + (arousalAmplifier * 0.10f)
                 + (qcSignal * 0.15f)
                 + (ethicsSignal * 0.20f)
-                + (driftSignal * 0.10f);
+                + (driftSignal * 0.10f)
+                + (persistenceSignal * 0.15f);
 
         return Math.Clamp(raw, 0f, 1f);
     }

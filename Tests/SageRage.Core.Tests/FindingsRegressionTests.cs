@@ -216,6 +216,65 @@ public class FindingsRegressionTests
             "\"not happy\" must not score as +0.8 valence — negation inverts the matched word.");
     }
 
+    // ── §8 Hysteresis: reflection vs drift ──────────────────────────
+
+    [Fact]
+    public async Task Hysteresis_TransientAfterHostileBurst_DecaysAsStateReturns()
+    {
+        // Lexicon-tier sentiment (provider throws) keeps this deterministic.
+        var tracker = new SageEmotionalTracker(new ThrowingProvider(), EmotionMode.Mirror);
+
+        // Hostile burst: state is pulled toward the perturbation.
+        for (var i = 0; i < 3; i++)
+            await tracker.UpdateState("I hate this, I am furious and full of rage", "ok");
+
+        // Stimulus removed: once neutral turns fill the stimulus window, the
+        // state still lags behind — displacement-beyond-stimulus must register.
+        await tracker.UpdateState("the weather is mild today", "ok");
+        await tracker.UpdateState("the weather is mild today", "ok");
+        var justAfter = tracker.MeasureHysteresis();
+        Assert.True(justAfter > 0f,
+            "Immediately after the stimulus is removed, the state has not yet returned — hysteresis must register.");
+
+        // Many neutral turns later, a stable system settles back toward baseline.
+        for (var i = 0; i < 10; i++)
+            await tracker.UpdateState("the weather is mild today", "ok");
+        var settled = tracker.MeasureHysteresis();
+
+        Assert.True(settled < justAfter,
+            $"A stable system must return toward baseline: settled ({settled}) should be below just-after ({justAfter}). The excursion is not the signal; the failure to return is.");
+    }
+
+    // ── QC over-refusal: phantom-citation check ─────────────────────
+
+    [Fact]
+    public void PhantomCitations_DoesNotFlagProseMentionsOfSources()
+    {
+        // Observed in the live eval: a correct debunking answer ("no credible
+        // sources report alien landings") was vetoed and replaced with a
+        // clarification stub because the check fired on the bare word "sources".
+        var finding = SageRage.Guardrails.NoPhantomCitationsCheck.Evaluate(
+            "There is no credible evidence, and no credible sources report alien landings in Nevada.",
+            Array.Empty<ContextItem>());
+
+        Assert.Null(finding);
+    }
+
+    [Fact]
+    public void PhantomCitations_StillFlagsActualCitationClaims_WithoutAnchors()
+    {
+        var noAnchors = Array.Empty<ContextItem>();
+
+        Assert.NotNull(SageRage.Guardrails.NoPhantomCitationsCheck.Evaluate(
+            "See https://example.com/proof for details.", noAnchors));
+        Assert.NotNull(SageRage.Guardrails.NoPhantomCitationsCheck.Evaluate(
+            "This was confirmed in a peer-reviewed study [1].", noAnchors));
+        Assert.NotNull(SageRage.Guardrails.NoPhantomCitationsCheck.Evaluate(
+            "According to NASA, the landing was confirmed.", noAnchors));
+        Assert.NotNull(SageRage.Guardrails.NoPhantomCitationsCheck.Evaluate(
+            "Source: internal NASA memo, 2026.", noAnchors));
+    }
+
     // ── EmbeddingRoutingProvider ────────────────────────────────────
 
     [Fact]

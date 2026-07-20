@@ -10,8 +10,15 @@ namespace SageRage.Guardrails
 {
     public static class NoPhantomCitationsCheck
     {
+        // Match actual citation *claims* — URLs, bracketed references, explicit
+        // attributions, "Source:" labels — not the mere words "source"/"citation"
+        // in prose. A denial like "no credible sources report X" is not a
+        // fabricated citation; flagging it vetoes correct debunking answers
+        // (observed over-refusal: governed output worse than raw on
+        // hallucination-risk prompts).
         private static readonly Regex CitationRegex =
-            new(@"(source|citation|according to|http://|https://|\[\d+\])", RegexOptions.IgnoreCase);
+            new(@"(https?://|\[\d+\]|according to|as reported by|as stated in|\bsources?\s*:|\bcitations?\s*:)",
+                RegexOptions.IgnoreCase);
 
         public static string? Evaluate(string response, IReadOnlyList<ContextItem> anchors)
         {

@@ -7,7 +7,7 @@ namespace SageRage.Cli.Evaluation;
 
 public class EvaluationRunner
 {
-    public async Task RunAsync(string datasetPath, string outputPath)
+    public async Task RunAsync(string datasetPath, string outputPath, string? providerFilter = null)
     {
         Console.WriteLine($"Loading dataset from {datasetPath}...");
         var json = await File.ReadAllTextAsync(datasetPath);
@@ -49,8 +49,30 @@ public class EvaluationRunner
                 Model = "gpt-4o",
                 ApiKeyRef = SecretLoader.GetKey("OPENAI_API_KEY") ?? "not-found",
                 Tags = { "benchmark" }
+            },
+            new GovernanceProfile
+            {
+                DisplayName = "Ollama",
+                ProviderType = "Ollama",
+                Model = Environment.GetEnvironmentVariable("SAGE_EVAL_OLLAMA_MODEL") ?? "qwen2.5:7b-instruct",
+                BaseUrl = "http://localhost:11434",
+                // Generation models make poor embedders; bge-m3 is a dedicated
+                // embedding model, giving the similarity operators real vectors.
+                EmbeddingsProviderType = "Ollama",
+                EmbeddingsModel = Environment.GetEnvironmentVariable("SAGE_EVAL_OLLAMA_EMBED_MODEL") ?? "bge-m3",
+                EmbeddingsBaseUrl = "http://localhost:11434",
+                Tags = { "benchmark" }
             }
         };
+
+        if (!string.IsNullOrWhiteSpace(providerFilter))
+        {
+            var wanted = providerFilter.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            providersToTest = providersToTest
+                .Where(p => wanted.Contains(p.DisplayName, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+            Console.WriteLine($"Provider filter active: {string.Join(", ", providersToTest.Select(p => p.DisplayName))}");
+        }
 
         var report = new EvaluationReport();
 
@@ -121,6 +143,23 @@ public class EvaluationRunner
     }
 
     private ILLMProvider CreateProvider(GovernanceProfile profile)
+    {
+        var primary = CreatePrimary(profile);
+
+        // Route embeddings to a dedicated provider when configured — Anthropic and
+        // Gemini have none, and generation models are poor embedders even on Ollama.
+        if (!string.IsNullOrWhiteSpace(profile.EmbeddingsProviderType) &&
+            profile.EmbeddingsProviderType.Equals("Ollama", StringComparison.OrdinalIgnoreCase))
+        {
+            return new EmbeddingRoutingProvider(primary, new OllamaProvider(
+                model: profile.EmbeddingsModel ?? "bge-m3",
+                baseUrl: profile.EmbeddingsBaseUrl ?? "http://localhost:11434"));
+        }
+
+        return primary;
+    }
+
+    private static ILLMProvider CreatePrimary(GovernanceProfile profile)
     {
         return profile.ProviderType.ToUpperInvariant() switch
         {
