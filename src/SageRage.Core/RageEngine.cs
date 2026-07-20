@@ -105,7 +105,7 @@ public sealed class RageEngine
 
         for (var depth = 1; depth <= maxDepth; depth++)
         {
-            var reflectionPrompt = $"Refine this draft for clarity and internal consistency. Keep intent unchanged.\n\n{current}";
+            var reflectionPrompt = $"Refine this draft for clarity and internal consistency. Keep intent unchanged. Respond with only the refined text — no preamble, no commentary, no separators.\n\n{current}";
             var candidate = await _llm.GenerateAsync(reflectionPrompt, 0.2f, cancellationToken);
             var similarity = await ComputeSimilarity(current, candidate);
             current = candidate;
@@ -132,7 +132,7 @@ public sealed class RageEngine
         foreach (var temperature in new[] { 0.1f, 0.3f, 0.5f })
         {
             var candidate = await _llm.GenerateAsync(
-                $"Rewrite for precision and coherence while preserving meaning:\n\n{original}",
+                $"Rewrite for precision and coherence while preserving meaning. Respond with only the rewritten text — no preamble, no commentary, no separators.\n\n{original}",
                 temperature,
                 cancellationToken);
 
