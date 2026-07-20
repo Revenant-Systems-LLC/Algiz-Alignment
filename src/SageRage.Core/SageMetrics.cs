@@ -43,22 +43,88 @@ public class SageMetrics
         return dotProduct / (magnitudeA * magnitudeB);
     }
 
-    public async Task<float> CalculatePerplexity(string text)
+    /// <summary>
+    /// Semantic similarity between two texts: embedding cosine when the provider
+    /// has embeddings, lexical Jaccard overlap otherwise. Providers without an
+    /// embeddings endpoint (Anthropic, Gemini) return empty vectors, and cosine
+    /// on empty vectors is a dead 0 that silently disables every consumer —
+    /// the fallback keeps convergence and selection alive on those providers.
+    /// </summary>
+    public async Task<float> TextSimilarity(string left, string right, CancellationToken cancellationToken = default)
     {
-        // This is a simplified perplexity estimation
-        // In a real implementation, this would use model log probabilities
-        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length == 0) return float.MaxValue;
+        var embA = await GetEmbedding(left, cancellationToken);
+        var embB = await GetEmbedding(right, cancellationToken);
 
-        // Use embedding variance as a proxy for perplexity
-        var embedding = await GetEmbedding(text);
-        if (embedding.Length == 0) return float.MaxValue;
+        if (embA.Length > 0 && embA.Length == embB.Length)
+            return CosineSimilarity(embA, embB);
 
-        var mean = embedding.Average();
-        var variance = embedding.Sum(x => Math.Pow(x - mean, 2)) / embedding.Length;
-        return (float)Math.Sqrt(variance);
+        return LexicalSimilarity(left, right);
     }
 
+    /// <summary>Jaccard word-overlap similarity. Heuristic tier — order-insensitive.</summary>
+    public static float LexicalSimilarity(string left, string right)
+    {
+        var leftWords = left.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rightWords = right.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (leftWords.Count == 0 && rightWords.Count == 0)
+            return 1f;
+
+        var intersection = leftWords.Intersect(rightWords, StringComparer.OrdinalIgnoreCase).Count();
+        var union = leftWords.Union(rightWords, StringComparer.OrdinalIgnoreCase).Count();
+        return union == 0 ? 0f : intersection / (float)union;
+    }
+
+    /// <summary>
+    /// Two-tier estimate per whitepaper §13: model log-probabilities when the
+    /// provider exposes them (true perplexity), heuristic uncertainty scoring
+    /// otherwise. Never returns a sentinel as a measurement.
+    /// </summary>
+    public async Task<float> CalculatePerplexity(string text)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0) return 1f;
+
+        var logProbs = await _llm.GetLogProbsAsync(text);
+        if (logProbs is { Length: > 0 })
+            return (float)Math.Exp(-logProbs.Average());
+
+        return HeuristicPerplexity(words);
+    }
+
+    /// <summary>
+    /// Heuristic tier: perplexity of the text's own unigram distribution (2^H).
+    /// Repetitive text scores near 1, lexically diverse text scores higher.
+    /// This measures lexical spread, not model uncertainty — a labeled proxy,
+    /// not a substitute for log-probabilities.
+    /// </summary>
+    public static float HeuristicPerplexity(string[] words)
+    {
+        if (words.Length == 0) return 1f;
+
+        var counts = words
+            .GroupBy(w => w, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (double)g.Count())
+            .ToArray();
+        double total = counts.Sum();
+
+        double entropy = 0.0;
+        foreach (var count in counts)
+        {
+            var p = count / total;
+            entropy -= p * Math.Log2(p);
+        }
+
+        return (float)Math.Pow(2, entropy);
+    }
+
+    /// <summary>
+    /// Gini coefficient of the flattened attention distribution.
+    /// G = Σ (2i − n − 1)·x_i / (n·Σx) over ascending-sorted x, i 1-indexed.
+    /// Returns 0 for uniform weights, →1 as mass concentrates.
+    /// </summary>
     public float GiniCoefficient(float[][] attentionWeights)
     {
         if (attentionWeights == null || attentionWeights.Length == 0)
@@ -68,20 +134,19 @@ public class SageMetrics
         if (allWeights.Length == 0) return 0f;
 
         Array.Sort(allWeights);
-        
-        float cumulativeSum = 0f;
-        float giniSum = 0f;
-        
-        for (int i = 0; i < allWeights.Length; i++)
+
+        int n = allWeights.Length;
+        double totalSum = 0.0;
+        double weightedSum = 0.0;
+
+        for (int i = 0; i < n; i++)
         {
-            cumulativeSum += allWeights[i];
-            giniSum += cumulativeSum;
+            totalSum += allWeights[i];
+            weightedSum += (2.0 * (i + 1) - n - 1) * allWeights[i];
         }
 
-        float mean = cumulativeSum / allWeights.Length;
-        if (mean == 0) return 0f;
+        if (totalSum <= 0.0) return 0f;
 
-        float gini = (2 * giniSum) / (allWeights.Length * cumulativeSum) - (allWeights.Length + 1) / (float)allWeights.Length;
-        return Math.Max(0f, gini);
+        return (float)(weightedSum / (n * totalSum));
     }
 }

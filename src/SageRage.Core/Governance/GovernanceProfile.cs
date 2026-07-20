@@ -43,6 +43,21 @@ public sealed class GovernanceProfile
     /// <summary>Base URL for the provider (required for OpenAI-Compatible, Ollama, proxy upstreams).</summary>
     public string? BaseUrl { get; set; }
 
+    // ── Embeddings Configuration ────────────────────────────────────
+    // Providers without an embeddings endpoint (Anthropic, Gemini) need a
+    // dedicated embeddings source or every similarity-based operator
+    // (Ω convergence, χ selection, coherence, drift) degrades to lexical
+    // heuristics. Leave null to use the primary provider's own embeddings.
+
+    /// <summary>Optional dedicated embeddings provider ("Ollama", "OpenAI", "OpenAI-Compatible").</summary>
+    public string? EmbeddingsProviderType { get; set; }
+
+    /// <summary>Embedding model for the dedicated provider (e.g. "nomic-embed-text", "text-embedding-3-small").</summary>
+    public string? EmbeddingsModel { get; set; }
+
+    /// <summary>Base URL for the dedicated embeddings provider, when it is local/self-hosted.</summary>
+    public string? EmbeddingsBaseUrl { get; set; }
+
     // ── Pipeline Configuration ──────────────────────────────────────
 
     /// <summary>

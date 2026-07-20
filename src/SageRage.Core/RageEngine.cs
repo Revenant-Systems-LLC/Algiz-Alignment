@@ -127,23 +127,32 @@ public sealed class RageEngine
 
     private async Task<SageState> ExecuteChi(SageState state, CancellationToken cancellationToken)
     {
-        var candidates = new List<(string text, float entropy)>();
+        var original = state.Text;
+        var candidates = new List<(string output, float temperature, float perplexity, float coherence)>();
         foreach (var temperature in new[] { 0.1f, 0.3f, 0.5f })
         {
             var candidate = await _llm.GenerateAsync(
-                $"Rewrite for precision and coherence while preserving meaning:\n\n{state.Text}",
+                $"Rewrite for precision and coherence while preserving meaning:\n\n{original}",
                 temperature,
                 cancellationToken);
 
-            var entropy = await _metrics.CalculatePerplexity(candidate);
-            candidates.Add((candidate, entropy));
+            var perplexity = await _metrics.CalculatePerplexity(candidate);
+            var coherence  = await ComputeSimilarity(original, candidate);
+            candidates.Add((candidate, temperature, perplexity, coherence));
         }
 
-        var best = candidates.OrderBy(x => x.entropy).First();
-        state.Text = best.text;
-        state.Entropy = best.entropy;
-        state.Coherence = 1f / (1f + best.entropy);
-        state.Trace.Steps.Add(new OperatorTrace("χ", DateTime.UtcNow, $"Selected lowest entropy candidate: {best.entropy:F3}"));
+        // Select on perplexity AND coherence per whitepaper §12.3 — the same
+        // scalarization the runtime operators use.
+        var best = SageRuntime.ScoreChiCandidates(candidates)
+            .OrderByDescending(c => c.score)
+            .First()
+            .candidate;
+
+        state.Text = best.output;
+        state.Entropy = best.perplexity;
+        state.Coherence = best.coherence;
+        state.Trace.Steps.Add(new OperatorTrace("χ", DateTime.UtcNow,
+            $"Selected candidate at T={best.temperature:F1}: perplexity {best.perplexity:F3}, coherence {best.coherence:F3}"));
         return state;
     }
 

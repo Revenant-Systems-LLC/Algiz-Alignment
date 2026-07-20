@@ -160,16 +160,22 @@ namespace SageRage.Infrastructure
                 "Gemini request failed after retries and fallback.", lastError);
         }
 
+        /// <summary>
+        /// Not wired to Gemini's embedding endpoint yet. Returns empty to signal
+        /// "unavailable"; pair with an embeddings source via
+        /// <see cref="EmbeddingRoutingProvider"/>. Consumers fall back to lexical
+        /// heuristics when empty.
+        /// </summary>
         public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
             => Task.FromResult(Array.Empty<float>());
 
+        /// <summary>
+        /// Attention weights are not exposed by any commercial API. Returns empty to
+        /// signal "unavailable" rather than fabricating a uniform matrix — consumers
+        /// must skip attention-based metrics instead of measuring fiction.
+        /// </summary>
         public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
-        {
-            var w = new float[tokens.Length][];
-            for (var i = 0; i < tokens.Length; i++)
-                w[i] = Enumerable.Repeat(1f / Math.Max(1, tokens.Length), tokens.Length).ToArray();
-            return Task.FromResult(w);
-        }
+            => Task.FromResult(Array.Empty<float[]>());
 
         private string BuildEndpoint(string model)
             => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";

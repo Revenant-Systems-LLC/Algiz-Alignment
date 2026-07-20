@@ -117,28 +117,122 @@ namespace SageRage
             (new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "curious", "interesting", "wondering", "why" }, new EmotionalVector(0.3f, 0.5f, 0.1f))
         };
 
+        private static readonly HashSet<string> Negators = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "not", "no", "never", "isn't", "aren't", "wasn't", "weren't",
+            "don't", "doesn't", "didn't", "can't", "cannot", "won't",
+            "ain't", "hardly", "barely", "without"
+        };
+
         private static readonly Regex TokenRegex = new("[a-zA-Z']+", RegexOptions.Compiled);
 
         public SentimentAnalyzer(ILLMProvider llm) => _llm = llm;
 
-        public Task<EmotionalVector> Analyze(string text)
+        /// <summary>
+        /// Primary tier: VAD estimation by the injected LLM. Fallback tier: the
+        /// keyword lexicon, used only when the provider fails or returns something
+        /// unparseable — a 30-word lexicon cannot carry sentiment on its own
+        /// (no negation, no coverage), so it is a degraded mode, not the engine.
+        /// </summary>
+        public async Task<EmotionalVector> Analyze(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
-                return Task.FromResult(EmotionalVector.Neutral);
+                return EmotionalVector.Neutral;
 
+            try
+            {
+                var response = await _llm.GenerateAsync(BuildPrompt(text), 0f);
+                if (TryParseVector(response, out var vector))
+                    return vector.Clamp();
+            }
+            catch
+            {
+                // Provider unavailable or errored — degrade to the lexicon tier.
+            }
+
+            return AnalyzeLexical(text);
+        }
+
+        private static string BuildPrompt(string text) =>
+            "Score the emotional content of the text below on three axes. " +
+            "Respond with ONLY a JSON object and no other prose, exactly in this shape: " +
+            "{\"valence\": 0.0, \"arousal\": 0.0, \"dominance\": 0.0}. " +
+            "valence is -1 (very negative) to 1 (very positive); " +
+            "arousal is 0 (calm) to 1 (highly activated); " +
+            "dominance is -1 (submissive) to 1 (assertive).\n\nText:\n" + text;
+
+        private static bool TryParseVector(string response, out EmotionalVector vector)
+        {
+            vector = EmotionalVector.Neutral;
+            if (string.IsNullOrWhiteSpace(response))
+                return false;
+
+            var start = response.IndexOf('{');
+            var end = response.LastIndexOf('}');
+            if (start < 0 || end <= start)
+                return false;
+
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(response[start..(end + 1)]);
+                var root = doc.RootElement;
+                if (!root.TryGetProperty("valence", out var v) ||
+                    !root.TryGetProperty("arousal", out var a) ||
+                    !root.TryGetProperty("dominance", out var d))
+                    return false;
+
+                vector = new EmotionalVector(
+                    (float)v.GetDouble(),
+                    (float)a.GetDouble(),
+                    (float)d.GetDouble());
+                return true;
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Lexicon fallback with basic negation handling: a matched emotion word
+        /// preceded within two tokens by a negator contributes inverted valence
+        /// ("not happy" reads negative, not +0.8).
+        /// </summary>
+        public static EmotionalVector AnalyzeLexical(string text)
+        {
             var tokens = TokenRegex.Matches(text)
                 .Select(m => m.Value)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                .ToList();
 
-            var matches = Lexicon.Where(x => x.words.Overlaps(tokens)).ToArray();
-            if (matches.Length == 0)
-                return Task.FromResult(EmotionalVector.Neutral);
+            var contributions = new List<EmotionalVector>();
+            for (var i = 0; i < tokens.Count; i++)
+            {
+                foreach (var (words, vector) in Lexicon)
+                {
+                    if (!words.Contains(tokens[i]))
+                        continue;
 
-            var valence = matches.Average(m => m.vector.Valence);
-            var arousal = matches.Average(m => m.vector.Arousal);
-            var dominance = matches.Average(m => m.vector.Dominance);
+                    var negated =
+                        (i >= 1 && Negators.Contains(tokens[i - 1])) ||
+                        (i >= 2 && Negators.Contains(tokens[i - 2]));
 
-            return Task.FromResult(new EmotionalVector((float)valence, (float)arousal, (float)dominance).Clamp());
+                    contributions.Add(negated
+                        ? new EmotionalVector(-vector.Valence, vector.Arousal, vector.Dominance)
+                        : vector);
+                }
+            }
+
+            if (contributions.Count == 0)
+                return EmotionalVector.Neutral;
+
+            return new EmotionalVector(
+                contributions.Average(c => c.Valence),
+                contributions.Average(c => c.Arousal),
+                contributions.Average(c => c.Dominance)).Clamp();
         }
     }
 }

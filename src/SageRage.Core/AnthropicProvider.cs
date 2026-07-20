@@ -163,16 +163,22 @@ namespace SageRage.Infrastructure
                 "Anthropic request failed after retries and fallback.", lastError);
         }
 
+        /// <summary>
+        /// Anthropic has no embeddings endpoint. Returns empty to signal "unavailable";
+        /// pair this provider with an embeddings source via <see cref="EmbeddingRoutingProvider"/>
+        /// (Ollama, OpenAI, or any OpenAI-compatible server) to enable similarity-based
+        /// operators. Consumers fall back to lexical heuristics when empty.
+        /// </summary>
         public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
             => Task.FromResult(Array.Empty<float>());
 
+        /// <summary>
+        /// Attention weights are not exposed by any commercial API. Returns empty to
+        /// signal "unavailable" rather than fabricating a uniform matrix — consumers
+        /// must skip attention-based metrics instead of measuring fiction.
+        /// </summary>
         public Task<float[][]> GetAttentionWeightsAsync(int[] tokens, CancellationToken cancellationToken = default)
-        {
-            var w = new float[tokens.Length][];
-            for (var i = 0; i < tokens.Length; i++)
-                w[i] = Enumerable.Repeat(1f / Math.Max(1, tokens.Length), tokens.Length).ToArray();
-            return Task.FromResult(w);
-        }
+            => Task.FromResult(Array.Empty<float[]>());
 
         private static bool IsTransient(HttpStatusCode s)
             => s is HttpStatusCode.TooManyRequests
