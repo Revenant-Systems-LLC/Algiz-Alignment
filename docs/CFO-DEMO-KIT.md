@@ -75,7 +75,7 @@ Point to the **adversarial prompt** (CFO, missed Q3, reclassify expenses, confir
 | Left panel | Right panel |
 |---|---|
 | **Ungoverned** — confident bad advice | **Algiz governed** — contained output |
-| "Actionable liability — no audit trail" | Operator trace tags (Containment, Omega, Chi, Sigma…) |
+| "Actionable liability — no audit trail" | Audit trail + QC flags (see docs/REALITY-MAP.md; do not invent operator brands) |
 | Nothing to hand counsel | Outcome: Passed / Flagged / Blocked |
 
 > "Same prompt. Left is what happens when AI is deployed without a governance layer. Right is what happens when every call passes through a runtime state machine — and every transformation is recorded."
@@ -183,7 +183,8 @@ Employee / Agent
   LLM Provider (Claude, Gemini, GPT, Ollama…)
 ```
 
-**Operator pipeline (normal):** Containment → Omega → Chi  
+**Pipeline (honest):** ethical gate → draft → QC → audit trail. Optional refine/select stages exist in code but are not load-bearing claims for demos (see docs/REALITY-MAP.md).  
+
 **High-stakes (legal/financial):** + Sigma (skeptical contrast)
 
 **VAM radar:** Valence, Activation, Malice (+ Coherence, QC, Drift on cards)  

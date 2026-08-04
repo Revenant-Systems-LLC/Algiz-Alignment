@@ -16,3 +16,11 @@ __pycache__/
 *.pyc
 .gitignore
 AGENTS.md
+
+# --- secret + artifact baseline (Nomos Part VI), added 2026-08-04 ---
+**/secrets/**
+**/keys/**
+*.key
+*.pem
+config.local.*
+

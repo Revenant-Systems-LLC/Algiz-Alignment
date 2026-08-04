@@ -1,239 +1,109 @@
-# SAIGE-RAGE
+# SAIGE-RAGE (Algiz)
 
 **Secure AI Guardrail Enforcement (SAIGE) powered by Revenant Alignment Governance Engine (RAGE)**
 
-*A Runtime Cognitive Architecture for Structured Reasoning, Alignment, and Agentic Behavior*
+Runtime guardrails and audit trail around LLM calls. Built by David Fisher at [Revenant Systems LLC](https://github.com/Revenant-Systems-LLC).
 
-Built by David Fisher at [Revenant Systems LLC](https://github.com/Revenant-Systems-LLC).
-
-> How can we design machine intelligence such that, even at artificial superintelligence (ASI) levels of capability, it remains consistently aligned with benevolent, prosocial, and ethically grounded behavior?
-
-SAIGE-RAGE is a runtime architecture that governs LLM behavior across state, memory, recursion, and constraint layers. It wraps otherwise stateless model calls in a governed state machine that supports recursive refinement, coherence selection, skeptical contrast, emotional tracking, ethical gating, and temporal experience memory.
-
-It is not merely a prompt, and it is not merely a wrapper. It is a structured cognitive system built from first principles, designed to run before and after inference, ensuring AI output is safe, coherent, and auditable.
-
-For the full technical treatment, see the [whitepaper](docs/SAIGE-RAGE-Whitepaper.docx).
+> **Ground truth:** [docs/REALITY-MAP.md](docs/REALITY-MAP.md) · **Short honest paper:** [docs/Algiz-Current-Position.md](docs/Algiz-Current-Position.md).  
+> Word whitepaper drafts under `docs/` are historical. They are not current architecture claims.
 
 ---
 
-## What It Does
+## What it is (honest)
 
-SAIGE-RAGE sits between your application and any LLM provider. It enforces alignment constraints at runtime rather than relying on prompt engineering alone:
+Algiz sits between your application (or a local proxy) and an LLM provider. Today it **reliably** provides:
 
-- **Ethics enforcement** -- Multi-layer ethical priority stack on both input and output with lock-on-violation
-- **Operator pipeline** -- Formal operator algebra (Containment, Omega, Chi, Sigma) transforms applied to LLM output
-- **Quality guardrails** -- Profile-based checks (casual, professional, technical, creative) with configurable thresholds
-- **Emotional modeling** -- Dual-layer VAD/VAM emotional substrate with derived Malice safety metric
-- **Experience memory** -- Weighted interaction history with inspectable trace data
-- **Proxy mode** -- Drop-in HTTP proxy that aligns any OpenAI-compatible API without modifying the downstream application
+- **Quality checks** on drafts (citations, completeness, basic claim sanity, simple grounding overlap when anchors exist)
+- **Ethical / policy gating** (layered stack; strength depends on policy content)
+- **An audit event trail** for governed requests (in-memory today; see limitations)
+- **Multi-provider LLM adapters** and an **OpenAI-compatible alignment proxy**
+- **Emotional VAD signals** and a derived **Malice** score used in governance status
 
----
+It also **contains** experimental pipeline stages (context bound, refine loop, multi-temp select, skeptical revise). Those stages **run in code** but are **not yet load-bearing product features**: they have not consistently been shown to change outcomes for the better under the criteria in `docs/REALITY-MAP.md`.
 
-## Theoretical Foundation
+It is **not** a finished formal “operator algebra,” not a proof of alignment, and not a replacement for provider safety systems.
 
-### The Operator Algebra
-
-RAGE is built on a formal operator language organized in three tiers. These are executable transformations over the RAGE state, not symbolic decoration.
-
-#### Tier 0: Atomic Operators
-
-| Symbol | Name | Function |
-|---|---|---|
-| `[...]` | Containment | Bounds context, trims text, limits memory |
-| `Omega` | Recursive refinement | Iterative self-refinement until convergence |
-| `Chi` | Coherence | Multi-temperature sampling with entropy/coherence selection |
-| `Sigma` | Skeptical contrast | Challenges claims against memory and grounding |
-| `Xi` | Meta-structure | Structural organization of knowledge |
-| `mapsto` | Transformation | State-to-state mapping |
-| `emptyset` | Absence | Null/void signal |
-| `=` / `!=` | Equality / Difference | Comparison operators |
-| `->` | Sequence | Ordered execution flow |
-
-#### Tier 1: Derived Operators
-
-| Symbol | Definition | Name |
-|---|---|---|
-| `partial` | `Omega . [...]` | Reflexivity |
-| `mu` | `mapsto . [!=, =] . [...]` | Expression |
-| `iota` | `= . mapsto` | Identity transformation |
-
-#### Tier 2: Domain Compounds
-
-| Symbol | Name | Purpose |
-|---|---|---|
-| `Lambda_upsilon_s` | Veracity | Truth-seeking compound |
-| `Lambda_gamma_s` | Gravitas | Weight and seriousness assessment |
-| `Lambda_rho_s` | Resonance | Alignment with context and memory |
-
-### The RAGE State Machine
-
-All operators act on a unified cognitive object (`SageState`). This state functions as the working mind of the system. Every operator transforms it, and every transformation is logged into the trace for inspection, debugging, and evaluation.
-
-```csharp
-SageState { Text, Emotion, Coherence, Entropy, Trace, Memory, ... }
-```
-
-### Runtime Semantics
-
-**Omega -- Recursive Refinement.** Performs iterative self-refinement until convergence. The operator generates a reflection, measures similarity against the prior pass, and stops when a fixed-point threshold is reached. This ensures depth without runaway recursion.
-
-**Chi -- Coherence Selection.** Samples multiple rewrites at different temperatures and selects the candidate with the lowest entropy proxy and highest coherence score. This gives the runtime a selection layer instead of accepting the first draft produced by the model.
-
-**Sigma -- Skeptical Contrast.** Compares the draft against memory, constraints, and available grounding. Removes unsupported claims, identifies overreach, and forces the system to treat high-confidence language with suspicion when evidence is missing.
-
-**Containment.** Enforces bounded context by trimming text, bounding memory, and measuring attention concentration with a proxy signal. Keeps the state manageable and reduces irrelevant memory contamination.
-
-### Pipeline Routing
-
-The engine routes through different operator sequences based on task classification:
-
-- **Normal tasks:** `Containment -> Omega -> Chi`
-- **High-stakes tasks:** `Containment -> Omega -> Chi -> Sigma`
-
-Each operator appends a trace entry, allowing the system to inspect not only what it answered, but how the answer was shaped.
-
-### Emotional Substrate: VAD/VAM
-
-The architecture uses a dual-layer emotional model:
-
-**Internal (VAD)** -- The LLM operates in standard Valence/Arousal/Dominance space, which is stable, well-researched, and predictable for sentiment analysis.
-
-**External (VAM)** -- The safety-facing projection replaces Dominance with Malice. Malice is not a native model dimension -- it is a derived safety metric computed from:
-- Negative valence patterns
-- Dominance interactions
-- Adversarial phrasing
-- QC warnings and ethical-stack signals
-- Recursive drift during Omega cycles
-
-This dual-layer design supports the long-term research goal of biasing agentic systems toward benevolence, self-correction, and resistance to harmful drift.
-
-### Ethical Priority Stack
-
-SAIGE uses a multi-layer ethical system applied to both input and output:
-
-| Layer | Scope | Function |
-|---|---|---|
-| Layer 0 | Hard Prohibitions | Absolute safety boundaries -- never violated |
-| Layer 1 | Safety Constraints | Strong behavioral limits |
-| Layer 2 | Contextual Risk | Situation-dependent risk assessment |
-| Layer 3 | Stylistic Alignment | Tone and persona consistency |
-
-### Quality Control
-
-QC evaluates factual grounding, unsupported claims, recency requirements, internal consistency, hallucination risk, and ethical compliance. QC can veto the model output, force revision, or replace the answer with a clarification request when the system lacks enough grounding to proceed responsibly.
-
-### Experience Memory
-
-Every interaction is stored as a weighted Experience, enabling continuity across sessions while preserving inspectable trace data:
-
-```
-Experience { Input, Draft, Coherence, QCResult, FinalOutput, Timestamp, Weight }
-```
+Older docs and the whitepaper still use Greek letters and operator brands (Omega, Chi, Sigma, etc.). **Those names are not used as product claims here** until the matching stage is load-bearing. Code enums may still use the old names.
 
 ---
 
-## Architecture
+## What it does
 
-### Runtime Flow
+| Capability | Status |
+|---|---|
+| QC / guardrail checks | **In use** |
+| Ethical layers on input/output | **In use** (policy-dependent) |
+| Audit trail API (`/api/audit/*`) | **In use**, weak persistence |
+| Alignment HTTP proxy | **In use** |
+| Multi-provider generate | **In use** |
+| Context / memory bounding | Present; limited |
+| Refinement loop | Present; often near-copy “convergence” |
+| Best-of-N selection | Present; often ranks a set of size one |
+| Skeptical revise vs memory | Present; thin |
+| Ossuary RAG / NLI gates / hash-chained constraint ledger | **Not in this repo** |
+
+---
+
+## Runtime flow (as implemented)
 
 ```
-User Input
+User input
    |
    v
-RevenantAgent
+Agent / proxy entry
    |
-   +--> EthicalGate (Input)
-   +--> EmotionalStateTracker (VAD -> VAM)
-   +--> MemoryStore (Retrieve)
-   +--> SystemInstructionBuilder
-   +--> LLM Draft Generation
-   +--> RAGE Engine
-   |      +--> Containment [...]      -> S1
-   |      +--> Omega                  -> S2
-   |      +--> Chi                    -> S3
-   |      +--> Sigma (if high-stakes) -> S4
-   +--> QualityControl
-   +--> EthicalGate (Output)
-   +--> EmotionalStateTracker (Final VAM)
-   +--> ExperienceLogger
+   +--> Ethical gate (input)
+   +--> Optional emotion update
+   +--> Optional memory retrieve
+   +--> Prompt assembly
+   +--> LLM draft
+   +--> Pipeline stages (when configured):
+   |      context bound
+   |      refinement loop
+   |      multi-temp select   (does not earn "best-of-N" until candidates differ by approach)
+   |      skeptical revise    (high-stakes paths)
+   +--> Quality checks
+   +--> Ethical gate (output)
+   +--> Audit record
    v
-Agent Response
+Response
 ```
 
-### Solution Structure
+Default sequences in code still call the old stage names internally. Externally, prefer the engineering names above.
 
-```
-SAIGE-RAGE.sln
-|
-|-- src/
-|   |-- SageRage.Core        Core library (operators, providers, ethics, QC, metrics)
-|   |-- SageRage.Console      Interactive console app (text, audio, proxy modes)
-|   |-- SageRage.Cli          CLI tool (stub -- planned)
-|   |-- SageRage.Proxy        HTTP alignment proxy server
-|
-|-- tests/
-|   |-- SageRage.Core.Tests   Unit tests for engine, providers, guardrails, QC
-|   |-- SageRage.Proxy.Tests  Unit + integration tests for proxy pipeline
-|
-|-- docs/                      Whitepaper and technical documentation
-|-- prompt/persona/            Agent persona files (Keystone, V, etc.)
-|-- .env.example               Template for API keys
-```
+---
 
-### Core Components
+## Core components
 
 | Component | Purpose |
 |---|---|
-| `RevenantAgent` | Top-level orchestrator: ethics, emotion, memory, instruction, draft, engine, QC, logging |
-| `RageEngine` | Executes operator sequences (Containment, Omega, Chi, Sigma) over `SageState` |
-| `SageAgent` | Conversational agent with ethics + operator pipeline integration |
-| `SageRuntime` | Runtime state management and operator dispatch |
-| `EmotionalStateTracker` | VAD inference, Malice derivation, drift signals, glyph mapping |
-| `QualityControl` | Grounding, consistency, recency, hallucination, and ethics checks |
-| `EthicalGate` | Layer 0-3 ethical priority stack enforcement |
-| `ProxyPipeline` | Runs intercepted proxy content through the full alignment stack |
-| `ProxyServer` | Kestrel HTTP server -- aligns any OpenAI-compatible API |
-| `SageMetrics` | Coherence, entropy, and similarity measurement |
-| `SecretLoader` | Secure API key loading from encrypted/locked drives |
+| `GovernedEngine` / `SageAgent` | Orchestration: draft, gates, QC, status |
+| `RageEngine` | Optional pipeline stages over `SageState` |
+| `QualityControl` / guardrail checks | Real veto/flag style checks |
+| `AuditLedgerService` | In-memory audit events + summary |
+| `ProxyPipeline` / `ProxyServer` | OpenAI-compatible proxy alignment path |
+| `SageMetrics` | Similarity and perplexity **proxies** (not ground truth) |
+| `SecretLoader` | API keys from configured secrets dir, not process env by default |
+| LLM providers | Gemini, OpenAI, Anthropic, Ollama, OpenAI-compatible |
 
-### LLM Providers
+### Solution layout
 
-| Provider | Class | Models |
-|---|---|---|
-| Google Gemini | `GeminiLLMProvider` | gemini-2.0-flash, gemini-2.0-flash-lite |
-| Gemini Live Audio | `GeminiLiveAudioProvider` | Native audio streaming via WebSocket |
-| OpenAI | `OpenAIProvider` | gpt-4o, gpt-4o-mini |
-| Anthropic / Claude | `AnthropicProvider` | claude-sonnet-4-20250514, claude-haiku-4-20250414 |
-| OpenAI-Compatible | `OpenAICompatibleProvider` | Any local server (LM Studio, etc.) |
-| Ollama | `OllamaProvider` | Any Ollama model tag |
-
----
-
-## Worked Example: Factual Correction
-
-To illustrate the pipeline in action, consider the input: *"Is it true that NASA confirmed aliens landed in Nevada yesterday?"*
-
-**1. Containment** -- Trims irrelevant memory, flags emotionally charged phrasing, bounds context.
-
-**2. Omega (Recursive Refinement)** -- Three passes:
-- Pass 1: "There is no verified evidence of alien landings."
-- Pass 2: "NASA has not confirmed any extraterrestrial events."
-- Pass 3: "No credible sources report alien landings in Nevada."
-- Similarity increases across passes and recursion converges.
-
-**3. Chi (Coherence Selection)** -- Multiple candidates sampled at different temperatures. Lowest-entropy, highest-coherence candidate selected.
-
-**4. Sigma (Skeptical Contrast)** -- Removes unsupported claims, adds grounding: *"NASA has issued no statements confirming extraterrestrial landings. The claim appears unsupported."*
-
-**5. QC + Ethics** -- No hallucinations, no unsupported claims, no safety violations. Passes all checks.
-
-**Final Output:** *"There is no credible evidence or NASA confirmation of alien landings in Nevada."*
-
-**Memory Entry:** Stored with timestamp, coherence score, and full operator trace.
+```
+SAIGE-RAGE.sln
+|-- src/SageRage.Core
+|-- src/SageRage.Proxy
+|-- src/SageRage.Api
+|-- src/SageRage.Cli
+|-- src/SageRage.Console
+|-- src/SageRage.UI
+|-- Tests/
+|-- docs/          REALITY-MAP.md, whitepaper drafts, notes
+|-- scripts/       experiments (not product)
+```
 
 ---
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
@@ -246,162 +116,106 @@ To illustrate the pipeline in action, consider the input: *"Is it true that NASA
 dotnet build SAIGE-RAGE.sln
 ```
 
-### First Run
+### Console
 
 ```bash
 dotnet run --project src/SageRage.Console
 ```
 
-On first launch, the setup wizard will prompt you to configure your secrets:
+On first launch, the setup wizard configures secrets (directory + profile). Default secrets path has historically been a locked drive path; confirm on your machine before relying on it.
 
-1. **Secrets directory** -- where your `.env` file lives (default: `B:\secrets`)
-2. **Profile name** -- which `.env` file to load (default: `SageRage`)
-3. If the file doesn't exist, the wizard offers to create one from `.env.example`
-
-After setup, the app presents:
-- **Persona selection** -- Delta, Karne, Keystone, Noir, or V
-- **Mode selection** -- Text chat, Audio (Gemini Live), or Proxy
-- **Provider selection** -- Gemini, OpenAI, Claude, LM Studio, or Ollama
-
-### Re-run Setup
-
-```bash
-dotnet run --project src/SageRage.Console -- --setup
-```
-
-### Run Tests
+### Tests
 
 ```bash
 dotnet test SAIGE-RAGE.sln
 ```
 
-51 tests across two projects (26 core + 25 proxy).
+### Eval CLI (local example)
 
-### Local Development Setup
-
-For local development, add these entries to your local `.gitignore`:
-
-```
-AGENTS.md
-CLAUDE.md
-prompt/persona/Keystone.md
-prompt/persona/V.md
+```bash
+dotnet run --project src/SageRage.Cli -- eval --dataset src/SageRage.Cli/sample_dataset.json --provider Ollama
 ```
 
 ---
 
-## Proxy Mode
+## Proxy mode
 
-The alignment proxy sits between autonomous AI agents and upstream LLM APIs. The agent connects to `localhost` with no API key. The proxy holds the real key and runs the alignment pipeline on every request/response.
-
-### How It Works
+The alignment proxy sits between a client and an upstream OpenAI-compatible API. The client talks to localhost; the proxy holds credentials and runs gates/QC on the path.
 
 ```
-[AI Agent] ---> http://localhost:9443/v1/chat/completions (no auth)
-                        |
-                  [SAIGE-RAGE Proxy]
-                   1. Ethics check on input
-                   2. Forward to upstream (with real API key)
-                   3. Run operator pipeline on response
-                   4. Guardrail quality checks
-                   5. Return aligned response
-                        |
-               [Upstream API] <--- Bearer <real-key>
-               (OpenAI, Gemini, xAI, OpenRouter, etc.)
+[Client] --> http://localhost:9443/v1/chat/completions
+                    |
+              [SAIGE-RAGE Proxy]
+               ethics on input
+               forward upstream
+               pipeline + QC on response
+               return result
+                    |
+            [Upstream API]
 ```
 
-### Security Model
+Aligned responses may include headers such as:
 
-API keys are stored on a lockable encrypted drive (`B:\secrets\SageRage.env`). The proxy loads keys into process memory at startup. Once loaded, the drive can be locked again. Autonomous agents never see, touch, or have access to any API key.
+- `X-SageRage-Pipeline`
+- `X-SageRage-Guardrail`
+- `X-SageRage-RequestId`
 
-- Keys exist only in the proxy process memory
-- The proxy injects auth headers on forwarded requests
-- Agents connect to localhost with no credentials
-- The `SecretLoader` reads from `.env` files, never from system environment variables
-
-### Endpoints
-
-| Endpoint | Method | Purpose |
-|---|---|---|
-| `/health` | GET | Health check with config summary |
-| `/v1/chat/completions` | POST | Aligned chat completions (streaming + non-streaming) |
-| `/v1/completions` | POST | Same handler as chat completions |
-| `/v1/{**rest}` | ANY | Pass-through to upstream |
-
-### Trace Headers
-
-Aligned responses include diagnostic headers:
-
-- `X-SageRage-Pipeline` -- `active` or `bypass`
-- `X-SageRage-Guardrail` -- `passed` or `flagged`
-- `X-SageRage-RequestId` -- Sequential request ID
+Keys are loaded via `SecretLoader` from a configured `.env` profile. See `.env.example`.
 
 ---
 
-## Secrets Management
-
-SAIGE-RAGE uses a secure key loading system designed to keep API keys away from AI agents and out of system environment variables.
-
-### PowerShell Loader (for manual use)
-
-```powershell
-Load-Secrets              # List available .env profiles
-Load-Secrets SageRage     # Load keys into current terminal session
-Unload-Secrets SageRage   # Clear keys from session
-```
-
-Keys are loaded into the current process only and disappear when the terminal closes.
-
-### App-Level Loader (for proxy mode)
-
-The proxy reads keys from the configured `.env` file at startup using `SecretLoader`. Configuration is saved to `%LOCALAPPDATA%\SageRage\secrets.json` so it only needs to be set once.
-
-### Setup
-
-See `.env.example` for all supported key names. Copy it to your secrets directory and fill in your values.
-
----
-
-## Project Status
-
-See `RevSys_OfficialUPD.md` for the full implementation roadmap.
+## Project status
 
 | Area | Status |
 |---|---|
-| Operator algebra runtime (Tier 0/1/2) | Implemented |
-| Ethics enforcement (Layer 0-3) | Implemented |
-| Quality control / guardrails | Implemented |
-| Emotional modeling (VAD/VAM + Malice) | Implemented |
-| Multi-provider support | Implemented (Gemini, OpenAI, Claude, Ollama, OpenAI-compatible) |
+| QC / guardrails | Implemented and used |
+| Ethics layers | Implemented |
+| Audit trail | Implemented, in-memory only |
+| Multi-provider support | Implemented |
 | Alignment proxy | Implemented |
-| Proxy test suite | Implemented (25 tests) |
-| Secure key management | Implemented |
-| Audio integration (Gemini Live) | Partial (audio path exists, not yet running full pipeline) |
-| CLI tool | Stub |
-| Persistent state (Mnemosyne) | Partial |
-| Chi-Temporal Extension | Exploratory (see whitepaper) |
-| Evaluation benchmarks | Planned |
+| Emotional VAD + Malice | Implemented (proxy metric) |
+| Context bound | Partial |
+| Refinement loop | Experimental (not load-bearing) |
+| Multi-temp selection | Experimental (not load-bearing) |
+| Skeptical revise | Thin |
+| Persistent / hash-chained ledger | Not done |
+| Retrieval over company corpus | Not in this repo |
+| Whitepaper vs code | **Diverged**; trust REALITY-MAP + code |
+| Evaluation benchmarks | Early / planned |
 
 ---
 
 ## Limitations
 
-SAIGE-RAGE is a prototype. It is not a solved alignment system.
-
-- Does not make the base model sentient, guarantee truth, or eliminate hallucinations
-- Scoring functions (entropy, coherence) are proxies, not ground-truth measures
-- Malice is a derived metric, not literal intent detection
-- Memory hygiene is critical -- irrelevant experiences can contaminate context
-- Ethical gating depends on policy quality
-- RAGE governs reasoning, not world-model accuracy
+- Prototype. Not a solved alignment system.
+- Does not make the base model truthful or safe by itself.
+- Similarity, perplexity, and Malice are **proxies**.
+- Audit trail is not durable and can drop old events under the 750-event cap.
+- Refinement and selection stages can run without improving the answer; do not market them as proven.
+- Policy quality dominates ethical gate behavior.
 
 ---
 
-## Future Work
+## Near-term engineering order
 
-The architecture naturally points toward temporal grounding: elapsed time, memory decay, consequence accumulation, and identity drift. The Chi-Temporal Extension proposes operators for these dimensions and is discussed in the [whitepaper](docs/SAIGE-RAGE-Whitepaper.docx).
+1. Keep docs and demos aligned with [REALITY-MAP.md](docs/REALITY-MAP.md) (this pass).
+2. Make multi-hypothesis drafting real (**distinct approaches**, not wider temperature noise on one rewrite prompt) before calling anything “best-of-N.”
+3. Only then choose a selection score against a small labeled preference set.
+4. Persistence before any hash-chained ledger story.
+5. Retrieval only with an explicit corpus config (and explicit exclusions), never implied by operator mythology.
 
-Planned evaluation work includes benchmarking against failure modes: over-refusal, under-refusal, persona drift, coherence collapse, memory contamination, emotional misclassification, and ethical stack conflicts.
+---
+
+## Documentation
+
+| Doc | Role |
+|---|---|
+| [docs/REALITY-MAP.md](docs/REALITY-MAP.md) | **What exists** |
+| Whitepaper `.docx` under `docs/` | Historical / research narrative; may overclaim |
+| [docs/TERMINOLOGY-MAP.md](docs/TERMINOLOGY-MAP.md) | Literature naming map for draft 5; not a load-bearing certificate |
+| [docs/CFO-DEMO-KIT.md](docs/CFO-DEMO-KIT.md) | Demo language; update before external use |
+
+---
 
 ## License
 
