@@ -156,12 +156,11 @@ SAGE-RAGE.sln
 |   |-- SageRage.Cli          CLI tool (stub -- planned)
 |   |-- SageRage.Proxy        HTTP alignment proxy server
 |
-|-- tests/
+|-- Tests/
 |   |-- SageRage.Core.Tests   Unit tests for engine, providers, guardrails, QC
 |   |-- SageRage.Proxy.Tests  Unit + integration tests for proxy pipeline
 |
-|-- docs/                     Whitepaper and technical documentation
-|-- prompt/persona/           Agent persona files (Keystone, V, etc.)
+|-- docs/                     Whitepaper, design notes (docs/design), research notes
 |-- .env.example              Template for API keys
 ```
 
@@ -463,7 +462,7 @@ Planned work includes:
 - Benchmarking against failure modes (over-/under-refusal, persona drift, coherence collapse, memory contamination, emotional misclassification, ethical-stack failures)
 - Expanded deployment and observability capabilities for enterprise operations
 
-For full technical treatment, see the [whitepaper](docs/Algiz-Alignment-Whitepaper.docx).
+For full technical treatment, see the [whitepaper](docs/Algiz%20Alignment%20Engine%20Whitepaper.docx).
 
 ---
 
